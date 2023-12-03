@@ -15,6 +15,7 @@ services:
       - "traefik.http.routers.timer-secure.entrypoints=websecure"
       - "traefik.http.routers.timer-secure.tls=true"
       - "traefik.http.routers.timer-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.timer-secure.loadbalancer.server.port=80"
     networks:
       - web
 volumes:
