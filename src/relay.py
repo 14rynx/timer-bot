@@ -13,11 +13,15 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
     structure_fuel = shelve.open('../data/structure_fuel', writeback=True)
     user_characters = shelve.open('../data/user_characters', writeback=True)
     user_channels = shelve.open('../data/user_channels', writeback=True)
+    old_notifications = shelve.open('../data/old_notifications', writeback=True)
 
     for user, characters in user_characters.items():
         # Retrieve the channel associated with the user
         channel_id = user_channels.get(user)
         user_channel = bot.get_channel(channel_id)
+
+        if not user_channel:
+            continue
 
         for character_id, tokens in characters.items():
             # Refresh ESI Token
@@ -85,6 +89,7 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
 
             for notification in reversed(response.data):
                 notification_type = notification.get('type')
+                notification_id = notification.get("notification_id")
 
                 if "Structure" in notification_type:
                     structure_id = None
@@ -92,34 +97,45 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                         if "structureID:" in line:
                             structure_id = int(line.split(" ")[2])
 
-                    if structure_id:
-                        op = esi_app.op['get_universe_structures_structure_id'](structure_id=structure_id)
-                        structure_name = esi_client.request(op).data.get("name", "Unknown")
+                    # Check if this notification was sent out previously and skip it
+                    if str(notification_id) in old_notifications:
+                        continue
+
+                    try:
+                        if structure_id:
+                            op = esi_app.op['get_universe_structures_structure_id'](structure_id=structure_id)
+                            structure_name = esi_client.request(op).data.get("name", "Unknown")
+                        else:
+                            structure_name = "Unknown"
+
+                        if notification_type == 'StructureLostArmor':
+                            await user_channel.send(f"Structure {structure_name} has lost it's armor!\n")
+
+                        elif notification_type == "StructureLostShields":
+                            await user_channel.send(f"Structure {structure_name} has lost it's shields!\n")
+
+                        elif notification_type == "StructureUnanchoring":
+                            await user_channel.send(f"Structure {structure_name} is now unanchoring!\n")
+
+                        elif notification_type == "StructureUnderAttack":
+                            await user_channel.send(f"Structure {structure_name} is under attack!\n")
+
+                        elif notification_type == "StructureWentHighPower":
+                            await user_channel.send(f"Structure {structure_name} is now high power!\n")
+
+                        elif notification_type == "StructureWentLowPower":
+                            await user_channel.send(f"Structure {structure_name} is now low power!\n")
+
+                        elif notification_type == "StructureOnline":
+                            await user_channel.send(f"Structure {structure_name} went online!\n")
+                    except Exception as e:
+                        print(e)
                     else:
-                        structure_name = "Unknown"
-
-                    if notification_type == 'StructureLostArmor':
-                        await user_channel.send(f"Structure {structure_name} has lost it's armor!\n")
-
-                    elif notification_type == "StructureLostShields":
-                        await user_channel.send(f"Structure {structure_name} has lost it's shields!\n")
-
-                    elif notification_type == "StructureUnanchoring":
-                        await user_channel.send(f"Structure {structure_name} is now unanchoring!\n")
-
-                    elif notification_type == "StructureUnderAttack":
-                        await user_channel.send(f"Structure {structure_name} is under attack!\n")
-
-                    elif notification_type == "StructureWentHighPower":
-                        await user_channel.send(f"Structure {structure_name} is now high power!\n")
-
-                    elif notification_type == "StructureWentLowPower":
-                        await user_channel.send(f"Structure {structure_name} is now low power!\n")
-
-                    elif notification_type == "StructureOnline":
-                        await user_channel.send(f"Structure {structure_name} went online!\n")
+                        # Set that this notification was handled
+                        old_notifications[str(notification_id)] = "handled"
 
     structure_states.close()
     structure_fuel.close()
     user_characters.close()
     user_channels.close()
+    old_notifications.close()

@@ -5,7 +5,7 @@ from flask import request
 from waitress import serve
 
 
-def callback_server(esi_security, challenges):
+def callback_server(esi_app, esi_client, esi_security, challenges):
     flask_app = Flask("Timer Callback Server")
 
     @flask_app.route("/")
@@ -35,7 +35,18 @@ def callback_server(esi_security, challenges):
                 user_characters[user_key] = {character_id: tokens}
             else:
                 user_characters[user_key][character_id] = tokens
-        # asyncio.run(challenges[secret_state].send(f"Authenticated {character_name}"))
+
+        # Mark all old notifications as read
+        op = esi_app.op['get_characters_character_id_notifications'](character_id=character_id)
+        response = esi_client.request(op)
+
+        with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
+            for notification in response.data:
+                notification_type = notification.get('type')
+                notification_id = notification.get("notification_id")
+
+                if "Structure" in notification_type:
+                    old_notifications[str(notification_id)] = "skipped"
 
         return f"<p>Sucessfully authentiated {character_name}!</p>"
 
