@@ -1,11 +1,11 @@
-import asyncio
+import shelve
 
 from flask import Flask
 from flask import request
 from waitress import serve
 
 
-def callback_server(esi_security, challenges, user_characters):
+def callback_server(esi_security, challenges):
     flask_app = Flask("Timer Callback Server")
 
     @flask_app.route("/")
@@ -30,10 +30,11 @@ def callback_server(esi_security, challenges, user_characters):
         character_name = character_data["name"]
 
         # Store tokens under author
-        if user_key not in user_characters:
-            user_characters[user_key] = {character_id: tokens}
-        else:
-            user_characters[user_key][character_id] = tokens
+        with shelve.open('../data/user_characters', writeback=True) as user_characters:
+            if user_key not in user_characters:
+                user_characters[user_key] = {character_id: tokens}
+            else:
+                user_characters[user_key][character_id] = tokens
         # asyncio.run(challenges[secret_state].send(f"Authenticated {character_name}"))
 
         return f"<p>Sucessfully authentiated {character_name}!</p>"

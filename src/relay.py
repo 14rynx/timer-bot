@@ -78,7 +78,46 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                 else:
                     # Add structure to fuel db quietly
                     structure_fuel[structure_key] = fuel_warning(structure)
+            
+            # Fetch notifications from character
+            op = esi_app.op['get_characters_character_id_notifications'](character_id=character_id)
+            response = esi_client.request(op)
 
+            for notification in reversed(response.data):
+                notification_type = notification.get('type')
+
+                if "Structure" in notification_type:
+                    structure_id = None
+                    for line in notification.get("text").split("\n"):
+                        if "structureID:" in line:
+                            structure_id = int(line.split(" ")[2])
+
+                    if structure_id:
+                        op = esi_app.op['get_universe_structures_structure_id'](structure_id=structure_id)
+                        structure_name = esi_client.request(op).data.get("name", "Unknown")
+                    else:
+                        structure_name = "Unknown"
+
+                    if notification_type == 'StructureLostArmor':
+                        await user_channel.send(f"Structure {structure_name} has lost it's armor!\n")
+
+                    elif notification_type == "StructureLostShields":
+                        await user_channel.send(f"Structure {structure_name} has lost it's shields!\n")
+
+                    elif notification_type == "StructureUnanchoring":
+                        await user_channel.send(f"Structure {structure_name} is now unanchoring!\n")
+
+                    elif notification_type == "StructureUnderAttack":
+                        await user_channel.send(f"Structure {structure_name} is under attack!\n")
+
+                    elif notification_type == "StructureWentHighPower":
+                        await user_channel.send(f"Structure {structure_name} is now high power!\n")
+
+                    elif notification_type == "StructureWentLowPower":
+                        await user_channel.send(f"Structure {structure_name} is now low power!\n")
+
+                    elif notification_type == "StructureOnline":
+                        await user_channel.send(f"Structure {structure_name} went online!\n")
 
     structure_states.close()
     structure_fuel.close()

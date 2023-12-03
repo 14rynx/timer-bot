@@ -59,7 +59,8 @@ async def auth(ctx):
     secret_state = secrets.token_urlsafe(30)
     challenges[secret_state] = ctx
     uri = esi_security.get_auth_uri(state=secret_state, scopes=["esi-corporations.read_structures.v1",
-                                                                "esi-characters.read_notifications.v1"])
+                                                                "esi-characters.read_notifications.v1",
+                                                                "esi-universe.read_structures.v1"])
     await ctx.author.send(f"Use this [authentication link]({uri}) to authorize your characters.")
 
     # Store the channel information associated with the user
@@ -69,6 +70,7 @@ async def auth(ctx):
 
 @bot.command()
 async def callback(ctx):
+    """Sets the channel where you want to be notified if something happens."""
     try:
         # Store the channel information associated with the user
         user_key = str(ctx.author.id)
