@@ -11,15 +11,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
-      - "traefik.http.services.timer.loadbalancer.server.port=80"
-      - "traefik.http.routers.timer.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.timer.entrypoints=web"
       - "traefik.http.routers.timer-secure.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.timer-secure.entrypoints=websecure"
       - "traefik.http.routers.timer-secure.tls=true"
       - "traefik.http.routers.timer-secure.tls.certresolver=letsencrypt"
-      - "traefik.http.middlewares.redirecthttps.redirectscheme.scheme=https"
-      - "traefik.http.routers.hangar.middlewares=redirecthttps"
     networks:
       - web
   traefik:
@@ -31,6 +26,9 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"

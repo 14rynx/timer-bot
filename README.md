@@ -31,6 +31,8 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
     ```shell
     docker-compose up -d --build
     ```
+
+    Add the `LE_EMAIL=your_email@mailserver.com` to the .env file so that certbot can send you info about your certificates
     If you want to run this without any external things:
     ```shell
     docker-compose up -d --build -f docker-compose+traefik.yml
