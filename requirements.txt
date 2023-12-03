@@ -1,0 +1,6 @@
+requests
+Pyyaml
+EsiPy
+Flask
+discord
+waitress

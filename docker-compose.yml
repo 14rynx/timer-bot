@@ -1,0 +1,29 @@
+version: '3.1'
+services:
+  timer:
+    build: '.'
+    restart: unless-stopped
+    container_name: timer-bot
+    env_file:
+      .env
+    volumes:
+      - data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.services.timer.loadbalancer.server.port=80"
+      - "traefik.http.routers.timer.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.timer.entrypoints=web"
+      - "traefik.http.routers.timer-secure.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.timer-secure.entrypoints=websecure"
+      - "traefik.http.routers.timer-secure.tls=true"
+      - "traefik.http.routers.timer-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.middlewares.redirecthttps.redirectscheme.scheme=https"
+      - "traefik.http.routers.hangar.middlewares=redirecthttps"
+    networks:
+      - web
+volumes:
+  data:
+networks:
+  web:
+    external: true
