@@ -1,4 +1,5 @@
 import shelve
+from datetime import datetime
 
 from discord.ext import tasks
 
@@ -8,6 +9,13 @@ from structure_info import structure_info, fuel_warning
 @tasks.loop(seconds=600)
 async def external_pings(esi_app, esi_client, esi_security, bot):
     """Periodically fetches ESI and sends a message if anything interesting happened."""
+
+    # Skip over downtime period
+    current_time = datetime.utcnow()
+    server_down_start = current_time.replace(hour=11, minute=0, second=0)
+    server_down_end = current_time.replace(hour=11, minute=12, second=0)
+    if server_down_start <= current_time < server_down_end:
+        return
 
     structure_states = shelve.open('../data/structure_states', writeback=True)
     structure_fuel = shelve.open('../data/structure_fuel', writeback=True)
@@ -88,6 +96,10 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
             response = esi_client.request(op)
 
             for notification in reversed(response.data):
+                if type(notification_type) is str:
+                    print(f"Got error in notification: {notification}")
+                    continue
+
                 notification_type = notification.get('type')
                 notification_id = notification.get("notification_id")
 
