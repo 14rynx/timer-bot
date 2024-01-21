@@ -134,25 +134,25 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                                 structure_name = "Unknown"
 
                             if notification_type == 'StructureLostArmor':
-                                await user_channel.send(f"Structure {structure_name} has lost it's armor!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} has lost it's armor!\n")
 
                             elif notification_type == "StructureLostShields":
-                                await user_channel.send(f"Structure {structure_name} has lost it's shields!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} has lost it's shields!\n")
 
                             elif notification_type == "StructureUnanchoring":
-                                await user_channel.send(f"Structure {structure_name} is now unanchoring!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} is now unanchoring!\n")
 
                             elif notification_type == "StructureUnderAttack":
-                                await user_channel.send(f"Structure {structure_name} is under attack!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} is under attack!\n")
 
                             elif notification_type == "StructureWentHighPower":
-                                await user_channel.send(f"Structure {structure_name} is now high power!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} is now high power!\n")
 
                             elif notification_type == "StructureWentLowPower":
-                                await user_channel.send(f"Structure {structure_name} is now low power!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} is now low power!\n")
 
                             elif notification_type == "StructureOnline":
-                                await user_channel.send(f"Structure {structure_name} went online!\n")
+                                await user_channel.send(f"@everyone Structure {structure_name} went online!\n")
                         except Exception as e:
                             print(e)
                         else:
