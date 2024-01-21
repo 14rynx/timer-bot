@@ -1,3 +1,5 @@
+import logging
+
 import _gdbm
 import os
 import secrets
@@ -22,6 +24,13 @@ if sys.version_info.major == 3 and sys.version_info.minor >= 10:
 # Import esipy with mutable mappings changes
 from esipy import EsiApp, EsiClient, EsiSecurity
 from esipy.exceptions import APIException
+
+# Configure the logger
+logger = logging.getLogger('discord.main')
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
 
 # Setup ESIpy
 esi_app = EsiApp().get_latest_swagger
@@ -53,6 +62,8 @@ async def on_ready():
 @bot.command()
 async def auth(ctx):
     """Sends you an authorization link for a character."""
+    logger.info(f"{ctx.author.name} used !auth")
+
     user_key = str(ctx.author.id)
 
     # Send an authorization link
@@ -71,6 +82,9 @@ async def auth(ctx):
 @bot.command()
 async def callback(ctx):
     """Sets the channel where you want to be notified if something happens."""
+
+    logger.info(f"{ctx.author.name} used !callback")
+
     try:
         # Store the channel information associated with the user
         user_key = str(ctx.author.id)
@@ -87,6 +101,9 @@ async def callback(ctx):
 @bot.command()
 async def characters(ctx):
     """Displays your currently authorized characters."""
+
+    logger.info(f"{ctx.author.name} used !characters")
+
     try:
         user_key = str(ctx.author.id)
         with shelve.open('../data/user_characters', writeback=True) as user_characters:
@@ -119,6 +136,8 @@ async def characters(ctx):
 @bot.command()
 async def revoke(ctx, *character_name):
     """Revokes ESI access from your characters."""
+
+    logger.info(f"{ctx.author.name} used !revoke {character_name}")
 
     try:
         user_characters = shelve.open('../data/user_characters', writeback=True)
@@ -166,6 +185,8 @@ async def revoke(ctx, *character_name):
 @bot.command()
 async def info(ctx):
     """Returns the status of all structures linked."""
+
+    logger.info(f"{ctx.author.name} used !info")
 
     try:
         user_characters = shelve.open('../data/user_characters', writeback=True)

@@ -1,3 +1,4 @@
+import logging
 import shelve
 from datetime import datetime
 
@@ -5,10 +6,19 @@ from discord.ext import tasks
 
 from structure_info import structure_info, fuel_warning
 
+# Configure the logger
+logger = logging.getLogger('discord.relay')
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
+
 
 @tasks.loop(seconds=600)
 async def external_pings(esi_app, esi_client, esi_security, bot):
     """Periodically fetches ESI and sends a message if anything interesting happened."""
+
+    logger.info("Running external ping script.")
 
     # Skip over downtime period
     current_time = datetime.utcnow()
@@ -48,11 +58,12 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                 for structure in results.data:
                     # Fail if the character does not have permissions. TODO: Fail loud the first time this happens
                     if structure is None:
-                        print("Got a NoneType Structure")
+                        logger.warning(f"Got a NoneType Structure with character_id {character_id} / user_id {user}")
                         continue
 
                     if type(structure) is str:
-                        print(f"Got an error with a Structure: {structure}")
+                        logger.error(
+                            f"Got an error while fetching structure with character_id {character_id} / user_id {user}: {structure}")
                         continue
 
                     state = structure.get('state')
@@ -67,7 +78,8 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                                     f"{structure_info(structure)}"
                                 )
                             except Exception as e:
-                                print(e)
+                                logger.error(
+                                    f"Could not send structure state change to character_id {character_id} / user_id {user}: {e}")
                             else:
                                 # The message has been sent without any exception, so we can update our db
                                 structure_states[structure_key] = state
@@ -79,7 +91,8 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                                 f"{structure_info(structure)}"
                             )
                         except Exception as e:
-                            print(e)
+                            logger.error(
+                                f"Could not send structure state change to character_id {character_id} / user_id {user}: {e}")
                         else:
                             structure_states[structure_key] = state
 
@@ -91,7 +104,8 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                                     f"{structure_info(structure)}"
                                 )
                             except Exception as e:
-                                print(e)
+                                logger.error(
+                                    f"Could not send structure fuel warning to character_id {character_id} / user_id {user}: {e}")
                             else:
                                 # The message has been sent without any exception, so we can update our db
                                 structure_fuel[structure_key] = fuel_warning(structure)
@@ -106,11 +120,12 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
 
                 for notification in reversed(response.data):
                     if notification is None:
-                        print("Got a NoneType Notification")
+                        logger.warning(f"Got a NoneType notification with character_id {character_id} / user_id {user}")
                         continue
 
                     if type(notification) is str:
-                        print(f"Got error with a Notification: {notification}")
+                        logger.error(
+                            f"Got an error while fetching notification with character_id {character_id} / user_id {user}: {notification}")
                         continue
 
                     notification_type = notification.get('type')
@@ -137,7 +152,8 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                                 await user_channel.send(f"@everyone Structure {structure_name} has lost it's armor!\n")
 
                             elif notification_type == "StructureLostShields":
-                                await user_channel.send(f"@everyone Structure {structure_name} has lost it's shields!\n")
+                                await user_channel.send(
+                                    f"@everyone Structure {structure_name} has lost it's shields!\n")
 
                             elif notification_type == "StructureUnanchoring":
                                 await user_channel.send(f"@everyone Structure {structure_name} is now unanchoring!\n")
@@ -154,13 +170,14 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                             elif notification_type == "StructureOnline":
                                 await user_channel.send(f"@everyone Structure {structure_name} went online!\n")
                         except Exception as e:
-                            print(e)
+                            logger.error(
+                                f"Could not send notification to character_id {character_id} / user_id {user}: {e}")
                         else:
                             # Set that this notification was handled
                             old_notifications[str(notification_id)] = "handled"
 
     except Exception as e:
-        print(e)
+        logger.error(f"Got an unhandled exception: {e}")
     finally:
         structure_states.close()
         structure_fuel.close()
