@@ -62,8 +62,7 @@ async def external_pings(esi_app, esi_client, esi_security, bot):
                         continue
 
                     if type(structure) is str:
-                        logger.error(
-                            f"Got an error while fetching structure with character_id {character_id} / user_id {user}: {structure}")
+                        logger.warning(f"No permissions with character_id {character_id} / user_id {user}:")
                         continue
 
                     state = structure.get('state')
