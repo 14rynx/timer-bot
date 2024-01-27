@@ -158,8 +158,12 @@ async def revoke(ctx, *character_name):
             except APIException:
                 pass
 
-            # Delete user tokens
-            user_characters[user_key][character_key] = {}
+            # Delete character tokens
+            del user_characters[user_key][character_key]
+            # Delete entire user if no characters are left
+            if len(user_characters[user_key]) == 0:
+                del user_characters[user_key]
+
             await ctx.send(f"Revoked {character_name}'s API access!\n")
 
         else:
@@ -172,8 +176,8 @@ async def revoke(ctx, *character_name):
                 except APIException:
                     pass
 
-                # Delete user tokens
-                user_characters[user_key] = {}
+                # Delete entire user
+                del user_characters[user_key]
 
             await ctx.send("Revoked all characters API access!\n")
         user_characters.close()
