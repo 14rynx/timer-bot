@@ -1,6 +1,5 @@
-import logging
-
 import _gdbm
+import logging
 import os
 import secrets
 import shelve
@@ -54,6 +53,28 @@ intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
 
 
+async def set_callback(ctx):
+    try:
+        user_key = str(ctx.author.id)
+        with shelve.open('../data/user_channels', writeback=True) as user_channels:
+            # Store the channel information associated with the user
+            if isinstance(ctx.channel, discord.channel.DMChannel):
+                ctx.send("### WARNING\n"
+                         "This channel cannot be used for notifications,"
+                         " as it changes IDs and eventually will no longer be available to the bot!\n"
+                         "Use `!callback` outside of a DM channel e.g. in a server so the bot can reach you indefinitely.")
+
+                # In case the user has never set a callback before, we use this channel anyway,
+                # so that it will work for a bit at least.
+                if user_key not in user_channels:
+                    user_channels[user_key] = ctx.channel.id
+            else:
+                user_channels[user_key] = ctx.channel.id
+                await ctx.send("Set this channel as callback for notifications.")
+    except _gdbm.error:
+        await ctx.send("Currently busy with another command!")
+
+
 @bot.event
 async def on_ready():
     notification_pings.start(esi_app, esi_client, esi_security, bot)
@@ -74,29 +95,14 @@ async def auth(ctx):
                                                                 "esi-characters.read_notifications.v1",
                                                                 "esi-universe.read_structures.v1"])
     await ctx.author.send(f"Use this [authentication link]({uri}) to authorize your characters.")
-
-    # Store the channel information associated with the user
-    with shelve.open('../data/user_channels', writeback=True) as user_channels:
-        user_channels[user_key] = ctx.channel.id
+    await set_callback(ctx)
 
 
 @bot.command()
 async def callback(ctx):
     """Sets the channel where you want to be notified if something happens."""
-
     logger.info(f"{ctx.author.name} used !callback")
-
-    try:
-        # Store the channel information associated with the user
-        user_key = str(ctx.author.id)
-        with shelve.open('../data/user_channels', writeback=True) as user_channels:
-            if user_key in user_channels:
-                user_channels[user_key] = ctx.channel.id
-                await ctx.send("Set this channel as callback for notifications.")
-            else:
-                await ctx.send("You do not have any authorized channels!")
-    except _gdbm.error:
-        await ctx.send("Currently busy with another command!")
+    await set_callback(ctx)
 
 
 @bot.command()
