@@ -245,6 +245,6 @@ if __name__ == "__main__":
     # Load the stored user-channel associations from shelf files
     challenges = {}
 
-    callback = threading.Thread(target=lambda: callback_server(esi_app, esi_client, esi_security, challenges))
+    callback = threading.Thread(target=callback_server, args=(esi_app, esi_client, esi_security, challenges))
     callback.start()
     bot.run(os.environ["DISCORD_TOKEN"])

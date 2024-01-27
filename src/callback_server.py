@@ -26,6 +26,7 @@ def callback_server(esi_app, esi_client, esi_security, challenges):
         try:
             user_key = str(challenges[secret_state].author.id)
         except KeyError:
+            logger.info(f"got wrong secret in callback request: {secret_state}")
             return 'Authentication failed: State Missmatch', 403
 
         tokens = esi_security.auth(code)
@@ -53,6 +54,7 @@ def callback_server(esi_app, esi_client, esi_security, challenges):
                 if "Structure" in notification_type:
                     old_notifications[str(notification_id)] = "skipped"
 
+        logger.info(f"added {character_id}")
         return f"<p>Sucessfully authentiated {character_name}!</p>"
 
     serve(flask_app, port=80)
