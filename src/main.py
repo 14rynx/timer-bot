@@ -11,7 +11,7 @@ import discord
 from discord.ext import commands
 
 from callback_server import callback_server
-from relay import external_pings
+from relay import notification_pings, status_pings
 from structure_info import structure_info
 
 # Fix for Mutable Mapping collection being moved
@@ -56,7 +56,8 @@ bot = commands.Bot(command_prefix='!', intents=intent)
 
 @bot.event
 async def on_ready():
-    external_pings.start(esi_app, esi_client, esi_security, bot)
+    notification_pings.start(esi_app, esi_client, esi_security, bot)
+    status_pings.start(esi_app, esi_client, esi_security, bot)
 
 
 @bot.command()
