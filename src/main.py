@@ -58,14 +58,9 @@ async def set_callback(ctx, overwrite=False):
         user_key = str(ctx.author.id)
         with shelve.open('../data/user_channels', writeback=True) as user_channels:
             if overwrite or user_key not in user_channels:
+                user_channels[user_key] = ctx.channel.id
                 if isinstance(ctx.channel, discord.channel.DMChannel):
-                    # Even though overwrite is set we try to not save a DM channel if possible
-                    # In case the user has never set a callback before, we have to use this channel tho
-                    # so that it will work for a bit at least.
-                    if user_key not in user_channels:
-                        user_channels[user_key] = ctx.channel.id
-
-                    ctx.send(
+                    await ctx.send(
                         "### WARNING\n"
                         "This channel can only temporarily be used for notifications,"
                         " as it changes IDs and eventually will no longer be available to the bot!\n"
@@ -73,7 +68,6 @@ async def set_callback(ctx, overwrite=False):
                     )
 
                 else:
-                    user_channels[user_key] = ctx.channel.id
                     await ctx.send("Set this channel as callback for notifications.")
     except _gdbm.error:
         await ctx.send("Currently busy with another command!")
