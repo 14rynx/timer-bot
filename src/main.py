@@ -53,24 +53,28 @@ intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
 
 
-async def set_callback(ctx):
+async def set_callback(ctx, overwrite=False):
     try:
         user_key = str(ctx.author.id)
         with shelve.open('../data/user_channels', writeback=True) as user_channels:
-            # Store the channel information associated with the user
-            if isinstance(ctx.channel, discord.channel.DMChannel):
-                ctx.send("### WARNING\n"
-                         "This channel cannot be used for notifications,"
-                         " as it changes IDs and eventually will no longer be available to the bot!\n"
-                         "Use `!callback` outside of a DM channel e.g. in a server so the bot can reach you indefinitely.")
+            if overwrite or user_key not in user_channels:
+                if isinstance(ctx.channel, discord.channel.DMChannel):
+                    # Even though overwrite is set we try to not save a DM channel if possible
+                    # In case the user has never set a callback before, we have to use this channel tho
+                    # so that it will work for a bit at least.
+                    if user_key not in user_channels:
+                        user_channels[user_key] = ctx.channel.id
 
-                # In case the user has never set a callback before, we use this channel anyway,
-                # so that it will work for a bit at least.
-                if user_key not in user_channels:
+                    ctx.send(
+                        "### WARNING\n"
+                        "This channel can only temporarily be used for notifications,"
+                        " as it changes IDs and eventually will no longer be available to the bot!\n"
+                        "Use `!callback` outside of a DM channel e.g. in a server so the bot can reach you indefinitely."
+                    )
+
+                else:
                     user_channels[user_key] = ctx.channel.id
-            else:
-                user_channels[user_key] = ctx.channel.id
-                await ctx.send("Set this channel as callback for notifications.")
+                    await ctx.send("Set this channel as callback for notifications.")
     except _gdbm.error:
         await ctx.send("Currently busy with another command!")
 
@@ -86,8 +90,6 @@ async def auth(ctx):
     """Sends you an authorization link for a character."""
     logger.info(f"{ctx.author.name} used !auth")
 
-    user_key = str(ctx.author.id)
-
     # Send an authorization link
     secret_state = secrets.token_urlsafe(30)
     challenges[secret_state] = ctx
@@ -95,14 +97,14 @@ async def auth(ctx):
                                                                 "esi-characters.read_notifications.v1",
                                                                 "esi-universe.read_structures.v1"])
     await ctx.author.send(f"Use this [authentication link]({uri}) to authorize your characters.")
-    await set_callback(ctx)
+    await set_callback(ctx, overwrite=False)
 
 
 @bot.command()
 async def callback(ctx):
     """Sets the channel where you want to be notified if something happens."""
     logger.info(f"{ctx.author.name} used !callback")
-    await set_callback(ctx)
+    await set_callback(ctx, overwrite=True)
 
 
 @bot.command()
