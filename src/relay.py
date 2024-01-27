@@ -79,7 +79,7 @@ async def send_notification_message(notification, channel, character_id, user_id
 
     with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
         # Check if this notification was sent out previously and skip it
-        if str(notification_id := notification.get("notification_id")) not in old_notifications:
+        if str(notification_id := notification.get("notification_id")) in old_notifications:
             return
 
         try:
