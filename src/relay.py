@@ -1,8 +1,18 @@
 import logging
 import shelve
+import sys
 from datetime import datetime
 
 from discord.ext import tasks
+
+# Fix for Mutable Mapping collection being moved
+if sys.version_info.major == 3 and sys.version_info.minor >= 10:
+    import collections
+
+    setattr(collections, "MutableMapping", collections.abc.MutableMapping)
+    setattr(collections, "Mapping", collections.abc.Mapping)
+
+from esipy.exceptions import APIException
 
 from structure_info import structure_info, fuel_warning
 
@@ -163,7 +173,12 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
             for character_id, tokens in characters.items():
 
                 # Fetch notifications from character
-                esi_security.update_token(tokens)
+                try:
+                    esi_security.update_token(tokens)
+                except APIException:
+                    logger.error(f"authorization with user {user_id} and character {character_id} ran out")
+                    continue
+
                 op = esi_app.op['get_characters_character_id_notifications'](character_id=character_id)
                 notification_response = esi_client.request(op)
 
@@ -196,8 +211,12 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
             for character_id, tokens in characters.items():
                 # Refresh ESI Token
-                esi_security.update_token(tokens)
-                user_characters[user_id][character_id] = esi_security.refresh()
+                try:
+                    esi_security.update_token(tokens)
+                    user_characters[user_id][character_id] = esi_security.refresh()
+                except APIException:
+                    logger.error(f"authorization with user {user_id} and character {character_id} ran out")
+                    continue
 
                 # Get corporation ID from character
                 op = esi_app.op['get_characters_character_id'](character_id=character_id)
