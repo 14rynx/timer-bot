@@ -1,60 +1,68 @@
 import logging
 import shelve
+import sys
 
-from flask import Flask
-from flask import request
-from waitress import serve
+from aiohttp import web
+from discord.ext import tasks
+
+# Fix for Mutable Mapping collection being moved
+if sys.version_info.major == 3 and sys.version_info.minor >= 10:
+    import collections
+
+    setattr(collections, "MutableMapping", collections.abc.MutableMapping)
+    setattr(collections, "Mapping", collections.abc.Mapping)
+
+from esipy.exceptions import APIException
 
 # Configure the logger
 logger = logging.getLogger('callback')
 logger.setLevel(logging.INFO)
 
 
-def callback_server(esi_app, esi_client, esi_security, challenges):
-    flask_app = Flask("Timer Callback Server")
+@tasks.loop()
+async def callback_server(esi_security):
+    routes = web.RouteTableDef()
 
-    @flask_app.route("/")
-    def hello_world():
-        return "<p>Timer Script Callback Server</p>"
+    @routes.get('/')
+    async def hello(request):
+        return web.Response(text="Hangar Script Callback Server<")
 
-    @flask_app.route('/callback/')
-    def callback():
+    @routes.get('/callback/')
+    async def callback(request):
         # get the code from the login process
-        code = request.args.get('code')
-        secret_state = request.args.get('state')
+        code = request.query.get('code')
+        state = request.query.get('state')
 
         try:
-            user_key = str(challenges[secret_state].author.id)
+            with shelve.open('../data/challenges', writeback=True) as challenges:
+                author_id = str(challenges[state])
         except KeyError:
-            logger.info(f"got wrong secret in callback request: {secret_state}")
-            return 'Authentication failed: State Missmatch', 403
+            logger.warning(f"failed to verify challenge")
+            return web.Response(text="Authentication failed: State Missmatch", status=403)
 
-        tokens = esi_security.auth(code)
+        try:
+            tokens = esi_security.auth(code)
 
-        character_data = esi_security.verify()
-        character_id = character_data["sub"].split(':')[-1]
-        character_name = character_data["name"]
+            character_data = esi_security.verify()
+            character_id = character_data["sub"].split(':')[-1]
+            character_name = character_data["name"]
+        except APIException:
+            logger.warning(f"failed to verify token")
+            return web.Response(text="Authentication failed: Token Invalid", status=403)
 
         # Store tokens under author
-        with shelve.open('../data/user_characters', writeback=True) as user_characters:
-            if user_key not in user_characters:
-                user_characters[user_key] = {character_id: tokens}
+        with shelve.open('../data/tokens', writeback=True) as author_character_tokens:
+            if author_id not in author_character_tokens:
+                author_character_tokens[author_id] = {character_id: tokens}
             else:
-                user_characters[user_key][character_id] = tokens
-
-        # Mark all old notifications as read
-        op = esi_app.op['get_characters_character_id_notifications'](character_id=character_id)
-        response = esi_client.request(op)
-
-        with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
-            for notification in response.data:
-                notification_type = notification.get('type')
-                notification_id = notification.get("notification_id")
-
-                if "Structure" in notification_type:
-                    old_notifications[str(notification_id)] = "skipped"
+                author_character_tokens[author_id][character_id] = tokens
 
         logger.info(f"added {character_id}")
-        return f"<p>Sucessfully authentiated {character_name}!</p>"
+        return web.Response(text=f"Sucessfully authentiated {character_name}!")
 
-    serve(flask_app, port=80)
+    app = web.Application()
+    app.add_routes(routes)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, port=80)
+    await site.start()

@@ -4,7 +4,6 @@ import os
 import secrets
 import shelve
 import sys
-import threading
 
 import discord
 from discord.ext import commands
@@ -74,6 +73,7 @@ async def set_callback(ctx, overwrite=False):
 async def on_ready():
     notification_pings.start(esi_app, esi_client, esi_security, bot)
     status_pings.start(esi_app, esi_client, esi_security, bot)
+    callback_server.start(esi_security)
 
 
 @bot.command()
@@ -83,10 +83,13 @@ async def auth(ctx):
 
     # Send an authorization link
     secret_state = secrets.token_urlsafe(30)
-    challenges[secret_state] = ctx
-    uri = esi_security.get_auth_uri(state=secret_state, scopes=["esi-corporations.read_structures.v1",
-                                                                "esi-characters.read_notifications.v1",
-                                                                "esi-universe.read_structures.v1"])
+    with shelve.open('../data/challenges', writeback=True) as challenges:
+        challenges[secret_state] = ctx.author.id
+    uri = esi_security.get_auth_uri(state=secret_state, scopes=[
+        "esi-corporations.read_structures.v1",
+        "esi-characters.read_notifications.v1",
+        "esi-universe.read_structures.v1"
+    ])
     await ctx.author.send(f"Use this [authentication link]({uri}) to authorize your characters.")
     await set_callback(ctx, overwrite=False)
 
@@ -242,9 +245,4 @@ async def info(ctx):
 
 
 if __name__ == "__main__":
-    # Load the stored user-channel associations from shelf files
-    challenges = {}
-
-    callback = threading.Thread(target=callback_server, args=(esi_app, esi_client, esi_security, challenges))
-    callback.start()
     bot.run(os.environ["DISCORD_TOKEN"])
