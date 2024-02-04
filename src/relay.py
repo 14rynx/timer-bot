@@ -16,6 +16,12 @@ from esipy.exceptions import APIException
 
 from structure_info import structure_info, fuel_warning
 
+# Constants
+NOTIFICATION_CACHE_TIME = 600
+NOTIFICATION_PHASES = 5
+
+STATUS_CACHE_TIME = 3600
+
 # Configure the logger
 logger = logging.getLogger('discord.relay')
 logger.setLevel(logging.INFO)
@@ -76,7 +82,7 @@ async def send_notification_message(notification, channel, character_id, user_id
 
     with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
         # Check if this notification was sent out previously and skip it
-        if str(notification_id := notification.get("notification_id")) in old_notifications:
+        if (notification_id := str(notification.get("notification_id"))) in old_notifications:
             return
 
         try:
@@ -87,7 +93,7 @@ async def send_notification_message(notification, channel, character_id, user_id
                 f"Could not send notification to character_id {character_id} / user_id {user_id}: {e}")
         else:
             # Set that this notification was handled
-            old_notifications[str(notification_id)] = "handled"
+            old_notifications[notification_id] = "handled"
 
 
 async def send_state_message(structure, channel, character_id=0, user_id=""):
@@ -150,7 +156,22 @@ def downtime_is_now():
     return server_down_start <= current_time < server_down_end
 
 
-@tasks.loop(seconds=600)
+def schedule_characters(characters, current_loop):
+    """returns a subset of characters such that if all characters could get the same notification,
+    it is fetched as early as possible.
+
+    Requires the notification loop to be run more often than just for cache time by NOTIFICATION_PHASES"""
+
+    # Figure out the spacing in between each entry
+    phase_delta = NOTIFICATION_PHASES / len(characters)
+    current_phase = current_loop % NOTIFICATION_PHASES
+
+    for i, character_data in enumerate(characters.items()):
+        if int(i * phase_delta) == current_phase:
+            yield character_data
+
+
+@tasks.loop(seconds=NOTIFICATION_CACHE_TIME // NOTIFICATION_PHASES + 1)
 async def notification_pings(esi_app, esi_client, esi_security, bot):
     """Periodically fetch notifications from ESI"""
 
@@ -167,7 +188,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_id))
 
-            for character_id, tokens in characters.items():
+            for character_id, tokens in schedule_characters(characters, notification_pings.current_loop):
 
                 # Fetch notifications from character
                 try:
@@ -189,7 +210,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
         user_characters.close()
 
 
-@tasks.loop(seconds=3600)
+@tasks.loop(seconds=STATUS_CACHE_TIME + 5)
 async def status_pings(esi_app, esi_client, esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
 
