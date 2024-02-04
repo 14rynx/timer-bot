@@ -71,7 +71,7 @@ async def set_callback(ctx, overwrite=False):
 
 @bot.event
 async def on_ready():
-    refresh_tokens.start(esi_security, bot)
+    refresh_tokens.start(esi_app, esi_client, esi_security, bot)
     notification_pings.start(esi_app, esi_client, esi_security, bot)
     status_pings.start(esi_app, esi_client, esi_security, bot)
     callback_server.start(esi_security)

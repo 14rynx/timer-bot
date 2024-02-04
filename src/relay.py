@@ -149,8 +149,7 @@ async def send_fuel_message(structure, channel, character_key="", user_key=""):
             structure_fuel[structure_key] = fuel_warning(structure)
 
 
-async def send_permission_warning(esi_security, channel, character_key, user_key):
-    character_name = esi_security.verify()['name']
+async def send_permission_warning(character_name, channel, character_key, user_key):
     try:
         await channel.send(
             "### Warning\n "
@@ -164,8 +163,7 @@ async def send_permission_warning(esi_security, channel, character_key, user_key
         logger.error(f"Could not send permission warning to user {user_key} character {character_key}: {e}")
 
 
-async def send_token_warning(esi_security, channel, character_key, user_key):
-    character_name = esi_security.verify()['name']
+async def send_token_warning(character_name, channel, character_key, user_key):
     try:
         await channel.send(
             "### Warning\n "
@@ -294,7 +292,9 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
                 # Get corporation ID from character
                 op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-                corporation_id = esi_client.request(op).data.get("corporation_id")
+                response_data = esi_client.request(op).data
+                corporation_id = response_data.get("corporation_id")
+                character_name = response_data.get("name")
 
                 # Fetch structure data from character
                 op = esi_app.op['get_corporations_corporation_id_structures'](corporation_id=corporation_id)
@@ -308,7 +308,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
                     # Fail if we got back an error
                     if type(structure) is str:
-                        await send_permission_warning(esi_security, user_channel, character_key, user_key)
+                        await send_permission_warning(character_name, user_channel, character_key, user_key)
                         continue
 
                     await send_state_message(structure, user_channel, character_key, user_key)
@@ -321,7 +321,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
 
 @tasks.loop(hours=49)
-async def refresh_tokens(esi_security, bot):
+async def refresh_tokens(esi_app, esi_client, esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
 
     logger.info("refreshing_tokens")
@@ -340,7 +340,9 @@ async def refresh_tokens(esi_security, bot):
                         user_characters[user_key][character_key] = esi_security.refresh()
                     except APIException:
                         # Tokens are already expired somehow -> let the user fix it
-                        await send_token_warning(esi_security, user_channel, character_key, user_key)
+                        op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+                        character_name = esi_client.request(op).data.get("name")
+                        await send_token_warning(character_name, user_channel, character_key, user_key)
 
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
