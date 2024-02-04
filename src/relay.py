@@ -18,9 +18,10 @@ from structure_info import structure_info, fuel_warning
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
-NOTIFICATION_PHASES = 5
+NOTIFICATION_PHASES = 12
 
 STATUS_CACHE_TIME = 3600
+STATUS_PHASES = 12
 
 # Configure the logger
 logger = logging.getLogger('discord.relay')
@@ -156,15 +157,15 @@ def downtime_is_now():
     return server_down_start <= current_time < server_down_end
 
 
-def schedule_characters(characters, current_loop):
+def schedule_characters(characters, current_loop, phases):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
 
     Requires the notification loop to be run more often than just for cache time by NOTIFICATION_PHASES"""
 
     # Figure out the spacing in between each entry
-    phase_delta = NOTIFICATION_PHASES / len(characters)
-    current_phase = current_loop % NOTIFICATION_PHASES
+    phase_delta = phases / len(characters)
+    current_phase = current_loop % phases
 
     for i, character_data in enumerate(characters.items()):
         if int(i * phase_delta) == current_phase:
@@ -188,7 +189,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_id))
 
-            for character_id, tokens in schedule_characters(characters, notification_pings.current_loop):
+            for character_id, tokens in schedule_characters(characters, notification_pings.current_loop, NOTIFICATION_PHASES):
 
                 # Fetch notifications from character
                 try:
@@ -227,7 +228,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_id))
 
-            for character_id, tokens in characters.items():
+            for character_id, tokens in schedule_characters(characters, status_pings.current_loop, STATUS_PHASES):
                 # Refresh ESI Token
                 try:
                     esi_security.update_token(tokens)
