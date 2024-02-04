@@ -313,14 +313,13 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
                 results = esi_client.request(op)
 
                 # Extracting and formatting data
-                for structure in results.data:
-                    # Fail if a structure is None
-                    if structure is None:
-                        continue
-
-                    # Fail if we got back an error
-                    if type(structure) is str:
+                if "error" in results.data:
+                    if results.data["error"] == "Character does not have required role(s)":
                         await send_permission_warning(character_name, user_channel, character_key, user_key)
+                    continue
+
+                for structure in results.data:
+                    if structure is None:
                         continue
 
                     await send_state_message(structure, user_channel, character_key, user_key)
