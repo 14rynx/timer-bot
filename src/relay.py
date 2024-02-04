@@ -240,7 +240,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
 
             for character_key, tokens in schedule_characters(
                     user_characters, user_key,
-                    status_pings.current_loop, STATUS_PHASES,
+                    notification_pings.current_loop, NOTIFICATION_PHASES,
                     esi_app, esi_client
             ):
 
