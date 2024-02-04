@@ -1,5 +1,4 @@
 import _gdbm
-import asyncio
 import logging
 import os
 import secrets
@@ -72,8 +71,7 @@ async def set_callback(ctx, overwrite=False):
 
 @bot.event
 async def on_ready():
-    refresh_tokens.start(esi_app, esi_client, esi_security, bot)
-    await asyncio.sleep(10)
+    refresh_tokens.start(esi_security, bot)
     notification_pings.start(esi_app, esi_client, esi_security, bot)
     status_pings.start(esi_app, esi_client, esi_security, bot)
     callback_server.start(esi_security)

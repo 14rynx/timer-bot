@@ -88,9 +88,9 @@ async def send_notification_message(notification, channel, character_key, user_k
         try:
             if len(message := build_notification_message(notification, esi_app, esi_client)) > 0:
                 await channel.send(message)
+                logger.info(f"Sent notification to user {user_key} character {character_key}")
         except Exception as e:
-            logger.error(
-                f"Could not send notification to character_id {character_key} / user_id {user_key}: {e}")
+            logger.error(f"Could not send notification to user {user_key} character {character_key}: {e}")
         else:
             # Set that this notification was handled
             old_notifications[notification_id] = "handled"
@@ -107,9 +107,9 @@ async def send_state_message(structure, channel, character_key="", user_key=""):
                         f"Structure {structure.get('name')} changed state:\n"
                         f"{structure_info(structure)}"
                     )
+                    logger.info(f"Sent state change to user {user_key} character {character_key}")
                 except Exception as e:
-                    logger.error(
-                        f"Could not send structure state change to character_id {character_key} / user_id {user_key}: {e}")
+                    logger.error(f"Could not send state change to user {user_key} character {character_key}: {e}")
                 else:
                     # The message has been sent without any exception, so we can update our db
                     structure_states[structure_key] = structure_state
@@ -120,9 +120,9 @@ async def send_state_message(structure, channel, character_key="", user_key=""):
                     f"Structure {structure.get('name')} newly found in state:\n"
                     f"{structure_info(structure)}"
                 )
+                logger.info(f"Sent initial state to user {user_key} character {character_key}")
             except Exception as e:
-                logger.error(
-                    f"Could not send structure state change to character_id {character_key} / user_id {user_key}: {e}")
+                logger.error(f"Could not send initial state to user {user_key} character {character_key}: {e}")
             else:
                 structure_states[structure_key] = structure_state
 
@@ -137,9 +137,9 @@ async def send_fuel_message(structure, channel, character_key="", user_key=""):
                         f"{fuel_warning(structure)}-day warning, structure {structure.get('name')} is running low on fuel:\n"
                         f"{structure_info(structure)}"
                     )
+                    logger.info(f"Sent fuel warning to user {user_key} character {character_key}")
                 except Exception as e:
-                    logger.error(
-                        f"Could not send structure fuel warning to character_id {character_key} / user_id {user_key}: {e}")
+                    logger.error(f"Could not send fuel warning to user {user_key} character {character_key}: {e}")
                 else:
                     # The message has been sent without any exception, so we can update our db
                     structure_fuel[structure_key] = fuel_warning(structure)
@@ -159,10 +159,9 @@ async def send_permission_warning(esi_security, channel, character_key, user_key
             f"remove him with `!revoke {character_name}`\n"
             "otherwise, fix your corp permissions and check them with `!info`"
         )
-        logger.info(f"Sent permission warning message to {character_name}")
+        logger.info(f"Sent permission warning to user {user_key} character {character_key}")
     except Exception as e:
-        logger.error(
-            f"Could not send permission warning to character_id {character_key} / user_id {user_key}: {e}")
+        logger.error(f"Could not send permission warning to user {user_key} character {character_key}: {e}")
 
 
 async def send_token_warning(esi_security, channel, character_key, user_key):
@@ -175,8 +174,7 @@ async def send_token_warning(esi_security, channel, character_key, user_key):
         )
         logger.info(f"Sent scope warning message to {character_name}")
     except Exception as e:
-        logger.error(
-            f"Could not send scope warning to character_id {character_key} / user_id {user_key}: {e}")
+        logger.error(f"Could not send scope warning to user {user_key} character {character_key}: {e}")
 
 
 def downtime_is_now():
@@ -186,7 +184,7 @@ def downtime_is_now():
     return server_down_start <= current_time < server_down_end
 
 
-def schedule_characters(characters, current_loop, phases):
+def schedule_characters(user_characters, user_key, current_loop, phases, esi_app, esi_client):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
 
@@ -194,18 +192,25 @@ def schedule_characters(characters, current_loop, phases):
 
     current_phase = current_loop % phases
 
-    for character_id, tokens in characters.items():
+    for character_key, tokens in user_characters[user_key].items():
+
+        # Get corporation ID from character
+        op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+        corporation_id = esi_client.request(op).data.get("corporation_id")
 
         # Count number of characters in this corporation that are registered
         # And figure out where in that data our character is to figure out the slot
         total_characters = 0
-        position = 0
-        with shelve.open('../data/character_corporations') as character_corporations:
-            corporation_id = character_corporations[str(character_id)]
+        character_position = 0
 
-            for character_id_2, corporation_id_2 in sorted(character_corporations.items(), key=lambda x: x[0]):
-                if character_id_2 == character_id:
-                    position = total_characters
+        for user_key_, characters in user_characters.items():
+            for character_key_2 in sorted(characters.keys()):
+                if character_key_2 == character_key_2:
+                    character_position = total_characters
+
+                # Get corporation ID from character
+                op = esi_app.op['get_characters_character_id'](character_id=int(character_key_2))
+                corporation_id_2 = esi_client.request(op).data.get("corporation_id")
 
                 if corporation_id_2 == corporation_id:
                     total_characters += 1
@@ -213,8 +218,8 @@ def schedule_characters(characters, current_loop, phases):
         # Figure out the spacing in between each entry
         phase_delta = phases / total_characters
 
-        if int(position * phase_delta) == current_phase:
-            yield character_id, tokens
+        if int(character_position * phase_delta) == current_phase:
+            yield character_key, tokens
 
 
 @tasks.loop(seconds=NOTIFICATION_CACHE_TIME // NOTIFICATION_PHASES + 1)
@@ -234,8 +239,11 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_key))
 
-            for character_key, tokens in schedule_characters(characters, notification_pings.current_loop,
-                                                             NOTIFICATION_PHASES):
+            for character_key, tokens in schedule_characters(
+                    user_characters, user_key,
+                    status_pings.current_loop, STATUS_PHASES,
+                    esi_app, esi_client
+            ):
 
                 # Fetch notifications from character
                 try:
@@ -273,7 +281,11 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_key))
 
-            for character_key, tokens in schedule_characters(characters, status_pings.current_loop, STATUS_PHASES):
+            for character_key, tokens in schedule_characters(
+                    user_characters, user_key,
+                    status_pings.current_loop, STATUS_PHASES,
+                    esi_app, esi_client
+            ):
                 # Fetch structure info from character
                 try:
                     esi_security.update_token(tokens)
@@ -281,8 +293,8 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
                     continue
 
                 # Get corporation ID from character
-                with shelve.open('../data/character_corporations') as character_corporations:
-                    corporation_id = character_corporations[character_key]
+                op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+                corporation_id = esi_client.request(op).data.get("corporation_id")
 
                 # Fetch structure data from character
                 op = esi_app.op['get_corporations_corporation_id_structures'](corporation_id=corporation_id)
@@ -296,8 +308,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
                     # Fail if we got back an error
                     if type(structure) is str:
-                        if status_pings.current_loop % (49 * STATUS_PHASES) == 1:
-                            await send_permission_warning(esi_security, user_channel, character_key, user_key)
+                        await send_permission_warning(esi_security, user_channel, character_key, user_key)
                         continue
 
                     await send_state_message(structure, user_channel, character_key, user_key)
@@ -310,7 +321,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
 
 @tasks.loop(hours=49)
-async def refresh_tokens(esi_app, esi_client, esi_security, bot):
+async def refresh_tokens(esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
 
     logger.info("refreshing_tokens")
@@ -318,21 +329,18 @@ async def refresh_tokens(esi_app, esi_client, esi_security, bot):
     try:
         with shelve.open('../data/user_characters', writeback=True) as user_characters:
             for user_key, characters in user_characters.items():
+
+                # Retrieve the channel associated with the user
+                with shelve.open('../data/user_channels') as user_channels:
+                    user_channel = bot.get_channel(user_channels.get(user_key))
+
                 for character_key, tokens in characters.items():
                     try:
                         esi_security.update_token(tokens)
                         user_characters[user_key][character_key] = esi_security.refresh()
                     except APIException:
-                        logger.info(f"authorization with user {user_key} and character {character_key} ran out")
                         # Tokens are already expired somehow -> let the user fix it
-
-                    # Update corporation ID for character
-                    op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-                    corporation_id = esi_client.request(op).data.get("corporation_id")
-
-                    # Retrieve the corporation associated with the user for scheduling
-                    with shelve.open('../data/character_corporations', writeback=True) as character_corporations:
-                        character_corporations[character_key] = corporation_id
+                        await send_token_warning(esi_security, user_channel, character_key, user_key)
 
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
