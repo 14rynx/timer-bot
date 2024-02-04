@@ -230,7 +230,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
     if downtime_is_now():
         return
 
-    logger.info("running notification_pings")
+    logger.debug("running notification_pings")
 
     # Increment phase
     global notification_phase
@@ -277,7 +277,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
     if downtime_is_now():
         return
 
-    logger.info("running status_pings")
+    logger.debug("running status_pings")
 
     # Increment phase
     global status_phase
@@ -335,7 +335,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 async def refresh_tokens(esi_app, esi_client, esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
 
-    logger.info("refreshing_tokens")
+    logger.debug("refreshing_tokens")
 
     try:
         with shelve.open('../data/user_characters', writeback=True) as user_characters:
