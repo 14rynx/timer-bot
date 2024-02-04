@@ -203,7 +203,7 @@ def schedule_characters(user_characters, user_key, current_loop, phases, esi_app
 
         for user_key_, characters in user_characters.items():
             for character_key_2 in sorted(characters.keys()):
-                if character_key_2 == character_key_2:
+                if character_key_2 == character_key:
                     character_position = total_characters
 
                 # Get corporation ID from character
@@ -215,8 +215,9 @@ def schedule_characters(user_characters, user_key, current_loop, phases, esi_app
 
         # Figure out the spacing in between each entry
         phase_delta = phases / total_characters
+        target_phase = int(character_position * phase_delta) % phases
 
-        if int(character_position * phase_delta) == current_phase:
+        if target_phase == current_phase:
             yield character_key, tokens
 
 
