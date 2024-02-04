@@ -1,4 +1,5 @@
 import _gdbm
+import asyncio
 import logging
 import os
 import secrets
@@ -9,7 +10,7 @@ import discord
 from discord.ext import commands
 
 from callback_server import callback_server
-from relay import notification_pings, status_pings
+from relay import notification_pings, status_pings, refresh_tokens
 from structure_info import structure_info
 
 # Fix for Mutable Mapping collection being moved
@@ -71,6 +72,8 @@ async def set_callback(ctx, overwrite=False):
 
 @bot.event
 async def on_ready():
+    refresh_tokens.start(esi_app, esi_client, esi_security, bot)
+    await asyncio.sleep(10)
     notification_pings.start(esi_app, esi_client, esi_security, bot)
     status_pings.start(esi_app, esi_client, esi_security, bot)
     callback_server.start(esi_security)
@@ -112,10 +115,10 @@ async def characters(ctx):
         with shelve.open('../data/user_characters', writeback=True) as user_characters:
 
             character_names = []
-            for character_id, tokens in user_characters[user_key].items():
+            for character_key, tokens in user_characters[user_key].items():
                 # Refresh ESI Token
                 esi_security.update_token(tokens)
-                user_characters[user_key][character_id] = esi_security.refresh()
+                user_characters[user_key][character_key] = esi_security.refresh()
 
                 # Get character name
                 character_name = esi_security.verify()['name']
@@ -149,7 +152,7 @@ async def revoke(ctx, *character_name):
         if character_name:
             character_name = " ".join(character_name)
             op = esi_app.op['post_universe_ids'](names=[character_name])
-            character_key = str(esi_client.request(op).data.get("characters", {})[0].get("id", ""))
+            character_key = str(esi_client.request(op).data.get("characters", {})[0].get("id"))
 
             # Try to authenticate and revoke access, if it fails don't worry
             tokens = user_characters[user_key][character_key]
@@ -202,14 +205,14 @@ async def info(ctx):
 
         user_key = str(ctx.author.id)
 
-        for character_id, tokens in user_characters[user_key].items():
+        for character_key, tokens in user_characters[user_key].items():
             # Refresh ESI Token
             esi_security.update_token(tokens)
-            user_characters[user_key][character_id] = esi_security.refresh()
+            user_characters[user_key][character_key] = esi_security.refresh()
             character_name = esi_security.verify()['name']
 
             # Get corporation ID from character
-            op = esi_app.op['get_characters_character_id'](character_id=character_id)
+            op = esi_app.op['get_characters_character_id'](character_id=character_key)
             corporation_id = esi_client.request(op).data.get("corporation_id")
 
             # Get structure data and build info for this structure
