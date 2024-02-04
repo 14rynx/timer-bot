@@ -26,6 +26,10 @@ STATUS_PHASES = 12
 logger = logging.getLogger('discord.relay')
 logger.setLevel(logging.INFO)
 
+# Configure iteration variables
+notification_phase = -1
+status_phase = -1
+
 
 def build_notification_message(notification, esi_app, esi_client):
     structure_name = get_structure_name(notification, esi_app, esi_client)
@@ -182,13 +186,11 @@ def downtime_is_now():
     return server_down_start <= current_time < server_down_end
 
 
-def schedule_characters(user_characters, user_key, current_loop, phases, esi_app, esi_client):
+def schedule_characters(user_characters, user_key, phase, phases, esi_app, esi_client):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
 
     Requires the notification loop to be run more often than just for cache time by NOTIFICATION_PHASES"""
-
-    current_phase = current_loop % phases
 
     for character_key, tokens in user_characters[user_key].items():
 
@@ -217,7 +219,7 @@ def schedule_characters(user_characters, user_key, current_loop, phases, esi_app
         phase_delta = phases / total_characters
         target_phase = int(character_position * phase_delta) % phases
 
-        if target_phase == current_phase:
+        if target_phase == phase:
             yield character_key, tokens
 
 
@@ -230,6 +232,10 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
 
     logger.info("running notification_pings")
 
+    # Increment phase
+    global notification_phase
+    notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
+
     user_characters = shelve.open('../data/user_characters')
     try:
         for user_key, characters in user_characters.items():
@@ -240,7 +246,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
 
             for character_key, tokens in schedule_characters(
                     user_characters, user_key,
-                    notification_pings.current_loop, NOTIFICATION_PHASES,
+                    notification_phase, NOTIFICATION_PHASES,
                     esi_app, esi_client
             ):
 
@@ -257,6 +263,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
                     await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
                                                     esi_client)
 
+
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
     finally:
@@ -272,6 +279,10 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
     logger.info("running status_pings")
 
+    # Increment phase
+    global status_phase
+    status_phase = (status_phase + 1) % STATUS_PHASES
+
     user_characters = shelve.open('../data/user_characters')
     try:
         for user_key, characters in user_characters.items():
@@ -282,7 +293,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
             for character_key, tokens in schedule_characters(
                     user_characters, user_key,
-                    status_pings.current_loop, STATUS_PHASES,
+                    status_phase, STATUS_PHASES,
                     esi_app, esi_client
             ):
                 # Fetch structure info from character
