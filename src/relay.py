@@ -313,17 +313,18 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
                 results = esi_client.request(op)
 
                 # Extracting and formatting data
-                if "error" in results.data:
-                    if results.data["error"] == "Character does not have required role(s)":
-                        await send_permission_warning(character_name, user_channel, character_key, user_key)
-                    continue
-
-                for structure in results.data:
-                    if structure is None:
+                for result_entry in results.data:
+                    if result_entry is None:
                         continue
 
-                    await send_state_message(structure, user_channel, character_key, user_key)
-                    await send_fuel_message(structure, user_channel, character_key, user_key)
+                    if type(result_entry) is str:
+                        # We have some kind of error, but since the library is a bit wired we get one str at a time
+                        if result_entry == "Character does not have required role(s)":
+                            await send_permission_warning(character_name, user_channel, character_key, user_key)
+                        continue
+
+                    await send_state_message(result_entry, user_channel, character_key, user_key)
+                    await send_fuel_message(result_entry, user_channel, character_key, user_key)
 
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
