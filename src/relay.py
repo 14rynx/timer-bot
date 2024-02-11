@@ -230,11 +230,11 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
     if downtime_is_now():
         return
 
-    logger.debug("running notification_pings")
-
     # Increment phase
     global notification_phase
     notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
+
+    logger.debug(f"running notification_pings in phase {notification_phase}")
 
     user_characters = shelve.open('../data/user_characters')
     try:
@@ -264,6 +264,8 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
                                                     esi_client)
 
 
+    except APIException:
+        logger.error("Got an api exception phase failed!")
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
     finally:
@@ -277,11 +279,11 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
     if downtime_is_now():
         return
 
-    logger.debug("running status_pings")
-
     # Increment phase
     global status_phase
     status_phase = (status_phase + 1) % STATUS_PHASES
+
+    logger.debug(f"running status_pings in phase {status_phase}")
 
     user_characters = shelve.open('../data/user_characters')
     try:
@@ -326,6 +328,8 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
                     await send_state_message(result_entry, user_channel, character_key, user_key)
                     await send_fuel_message(result_entry, user_channel, character_key, user_key)
 
+    except APIException:
+        logger.error("Got an api exception phase failed!")
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
     finally:
@@ -356,5 +360,7 @@ async def refresh_tokens(esi_app, esi_client, esi_security, bot):
                         character_name = esi_client.request(op).data.get("name")
                         await send_token_warning(character_name, user_channel, character_key, user_key)
 
+    except APIException:
+        logger.error("Got an api exception refresh failed!")
     except Exception as e:
         logger.error(f"Got an unhandled exception: {e}", exc_info=True)
