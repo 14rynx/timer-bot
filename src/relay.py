@@ -1,7 +1,6 @@
 import logging
 import shelve
 import sys
-from datetime import datetime
 
 from discord.ext import tasks
 
@@ -179,13 +178,6 @@ async def send_token_warning(character_name, channel, character_key, user_key):
         logger.error(f"Could not send scope warning to user {user_key} character {character_key}: {e}")
 
 
-def downtime_is_now():
-    current_time = datetime.utcnow()
-    server_down_start = current_time.replace(hour=11, minute=0, second=0)
-    server_down_end = current_time.replace(hour=11, minute=12, second=0)
-    return server_down_start <= current_time < server_down_end
-
-
 def schedule_characters(user_characters, user_key, phase, phases, esi_app, esi_client):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
@@ -226,18 +218,15 @@ def schedule_characters(user_characters, user_key, phase, phases, esi_app, esi_c
 @tasks.loop(seconds=NOTIFICATION_CACHE_TIME // NOTIFICATION_PHASES + 1)
 async def notification_pings(esi_app, esi_client, esi_security, bot):
     """Periodically fetch notifications from ESI"""
-
-    if downtime_is_now():
-        return
-
-    # Increment phase
-    global notification_phase
-    notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
-
-    logger.debug(f"running notification_pings in phase {notification_phase}")
-
-    user_characters = shelve.open('../data/user_characters')
     try:
+        # Increment phase
+        global notification_phase
+        notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
+
+        logger.debug(f"running notification_pings in phase {notification_phase}")
+
+        user_characters = shelve.open('../data/user_characters')
+
         for user_key, characters in user_characters.items():
 
             # Retrieve the channel associated with the user
@@ -267,7 +256,7 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
     except APIException:
         logger.error("Got an api exception phase failed!")
     except Exception as e:
-        logger.error(f"Got an unhandled exception: {e}", exc_info=True)
+        logger.error(f"Got an unhandled exception in notification_pings: {e}", exc_info=True)
     finally:
         user_characters.close()
 
@@ -275,18 +264,15 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
 @tasks.loop(seconds=STATUS_CACHE_TIME // STATUS_PHASES + 1)
 async def status_pings(esi_app, esi_client, esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
-
-    if downtime_is_now():
-        return
-
-    # Increment phase
-    global status_phase
-    status_phase = (status_phase + 1) % STATUS_PHASES
-
-    logger.debug(f"running status_pings in phase {status_phase}")
-
-    user_characters = shelve.open('../data/user_characters')
     try:
+        # Increment phase
+        global status_phase
+        status_phase = (status_phase + 1) % STATUS_PHASES
+
+        logger.debug(f"running status_pings in phase {status_phase}")
+
+        user_characters = shelve.open('../data/user_characters')
+
         for user_key, characters in user_characters.items():
 
             # Retrieve the channel associated with the user
@@ -331,7 +317,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
     except APIException:
         logger.error("Got an api exception phase failed!")
     except Exception as e:
-        logger.error(f"Got an unhandled exception: {e}", exc_info=True)
+        logger.error(f"Got an unhandled exception in status_pings: {e}", exc_info=True)
     finally:
         user_characters.close()
 
@@ -339,10 +325,9 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 @tasks.loop(hours=49)
 async def refresh_tokens(esi_app, esi_client, esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
-
-    logger.debug("refreshing_tokens")
-
     try:
+        logger.debug("refreshing_tokens")
+
         with shelve.open('../data/user_characters', writeback=True) as user_characters:
             for user_key, characters in user_characters.items():
 
@@ -363,4 +348,4 @@ async def refresh_tokens(esi_app, esi_client, esi_security, bot):
     except APIException:
         logger.error("Got an api exception refresh failed!")
     except Exception as e:
-        logger.error(f"Got an unhandled exception: {e}", exc_info=True)
+        logger.error(f"Got an unhandled exception in refresh_tokens: {e}", exc_info=True)
