@@ -178,41 +178,36 @@ async def send_token_warning(character_name, channel, character_key, user_key):
         logger.error(f"Could not send scope warning to user {user_key} character {character_key}: {e}")
 
 
-def schedule_characters(user_characters, user_key, phase, phases, esi_app, esi_client):
+def schedule_characters(user_characters, phase, phases, esi_app, esi_client):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
 
     Requires the notification loop to be run more often than just for cache time by NOTIFICATION_PHASES"""
 
-    for character_key, tokens in user_characters[user_key].items():
+    corporation_tokens = {}
 
-        # Get corporation ID from character
-        op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-        corporation_id = esi_client.request(op).data.get("corporation_id")
+    # Sort all registered characters by corporation
+    for user_key, characters in user_characters.items():
+        for character_key, tokens in user_characters[user_key].items():
 
-        # Count number of characters in this corporation that are registered
-        # And figure out where in that data our character is to figure out the slot
-        total_characters = 0
-        character_position = 0
+            # Get corporation ID from character
+            op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+            corporation_id = esi_client.request(op).data.get("corporation_id")
 
-        for user_key_, characters in user_characters.items():
-            for character_key_2 in sorted(characters.keys()):
-                if character_key_2 == character_key:
-                    character_position = total_characters
+            if corporation_id in corporation_tokens:
+                corporation_tokens[corporation_id].append([user_key, character_key, tokens])
+            else:
+                corporation_tokens[corporation_id] = [[user_key, character_key, tokens]]
 
-                # Get corporation ID from character
-                op = esi_app.op['get_characters_character_id'](character_id=int(character_key_2))
-                corporation_id_2 = esi_client.request(op).data.get("corporation_id")
+    # Now go through each corporation and run depending on the phase
+    for corporation_id, token_list in corporation_tokens.items():
+        characters_in_corporation = len(token_list)
 
-                if corporation_id_2 == corporation_id:
-                    total_characters += 1
+        for i, (user_key, character_key, tokens) in enumerate(token_list):
+            if phase == int(i / characters_in_corporation * phases):
+                logger.debug(f"scheduling corporation: {corporation_id} user: {user_key} character: {character_key}")
 
-        # Figure out the spacing in between each entry
-        phase_delta = phases / total_characters
-        target_phase = int(character_position * phase_delta) % phases
-
-        if target_phase == phase:
-            yield character_key, tokens
+            yield user_key, character_key, tokens
 
 
 @tasks.loop(seconds=NOTIFICATION_CACHE_TIME // NOTIFICATION_PHASES + 1)
@@ -227,30 +222,29 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
 
         user_characters = shelve.open('../data/user_characters')
 
-        for user_key, characters in user_characters.items():
+        for user_key, character_key, tokens in schedule_characters(
+                user_characters,
+                notification_phase, NOTIFICATION_PHASES,
+                esi_app, esi_client
+        ):
 
             # Retrieve the channel associated with the user
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_key))
 
-            for character_key, tokens in schedule_characters(
-                    user_characters, user_key,
-                    notification_phase, NOTIFICATION_PHASES,
-                    esi_app, esi_client
-            ):
+            # Fetch notifications from character
+            try:
+                esi_security.update_token(tokens)
+            except APIException:
+                continue
 
-                # Fetch notifications from character
-                try:
-                    esi_security.update_token(tokens)
-                except APIException:
-                    continue
+            op = esi_app.op['get_characters_character_id_notifications'](character_id=int(character_key))
+            notification_response = esi_client.request(op)
 
-                op = esi_app.op['get_characters_character_id_notifications'](character_id=int(character_key))
-                notification_response = esi_client.request(op)
-
-                for notification in reversed(notification_response.data):
-                    await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
-                                                    esi_client)
+            # Send Messages for notifications
+            for notification in reversed(notification_response.data):
+                await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
+                                                esi_client)
 
 
     except APIException:
@@ -273,46 +267,45 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
         user_characters = shelve.open('../data/user_characters')
 
-        for user_key, characters in user_characters.items():
+        for user_key, character_key, tokens in schedule_characters(
+                user_characters,
+                notification_phase, NOTIFICATION_PHASES,
+                esi_app, esi_client
+        ):
 
             # Retrieve the channel associated with the user
             with shelve.open('../data/user_channels') as user_channels:
                 user_channel = bot.get_channel(user_channels.get(user_key))
 
-            for character_key, tokens in schedule_characters(
-                    user_characters, user_key,
-                    status_phase, STATUS_PHASES,
-                    esi_app, esi_client
-            ):
-                # Fetch structure info from character
-                try:
-                    esi_security.update_token(tokens)
-                except APIException:
+            # Fetch structure info from character
+            try:
+                esi_security.update_token(tokens)
+            except APIException:
+                continue
+
+            # Get corporation ID from character
+            op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+            response_data = esi_client.request(op).data
+            corporation_id = response_data.get("corporation_id")
+            character_name = response_data.get("name")
+
+            # Fetch structure data from character
+            op = esi_app.op['get_corporations_corporation_id_structures'](corporation_id=corporation_id)
+            results = esi_client.request(op)
+
+            # Extracting and formatting data
+            for result_entry in results.data:
+                if result_entry is None:
                     continue
 
-                # Get corporation ID from character
-                op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-                response_data = esi_client.request(op).data
-                corporation_id = response_data.get("corporation_id")
-                character_name = response_data.get("name")
+                if type(result_entry) is str:
+                    # We have some kind of error, but since the library is a bit wired we get one str at a time
+                    if result_entry == "Character does not have required role(s)":
+                        await send_permission_warning(character_name, user_channel, character_key, user_key)
+                    continue
 
-                # Fetch structure data from character
-                op = esi_app.op['get_corporations_corporation_id_structures'](corporation_id=corporation_id)
-                results = esi_client.request(op)
-
-                # Extracting and formatting data
-                for result_entry in results.data:
-                    if result_entry is None:
-                        continue
-
-                    if type(result_entry) is str:
-                        # We have some kind of error, but since the library is a bit wired we get one str at a time
-                        if result_entry == "Character does not have required role(s)":
-                            await send_permission_warning(character_name, user_channel, character_key, user_key)
-                        continue
-
-                    await send_state_message(result_entry, user_channel, character_key, user_key)
-                    await send_fuel_message(result_entry, user_channel, character_key, user_key)
+                await send_state_message(result_entry, user_channel, character_key, user_key)
+                await send_fuel_message(result_entry, user_channel, character_key, user_key)
 
     except APIException:
         logger.error("Got an api exception phase failed!")
