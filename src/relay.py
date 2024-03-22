@@ -206,8 +206,7 @@ def schedule_characters(user_characters, phase, phases, esi_app, esi_client):
         for i, (user_key, character_key, tokens) in enumerate(token_list):
             if phase == int(i / characters_in_corporation * phases):
                 logger.debug(f"scheduling corporation: {corporation_id} user: {user_key} character: {character_key}")
-
-            yield user_key, character_key, tokens
+                yield user_key, character_key, tokens
 
 
 @tasks.loop(seconds=NOTIFICATION_CACHE_TIME // NOTIFICATION_PHASES + 1)
@@ -241,6 +240,9 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
             op = esi_app.op['get_characters_character_id_notifications'](character_id=int(character_key))
             notification_response = esi_client.request(op)
 
+            date = notification_response.header.get("Date")
+            logger.debug(f"notification info from {date}")
+
             # Send Messages for notifications
             for notification in reversed(notification_response.data):
                 await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
@@ -269,7 +271,7 @@ async def status_pings(esi_app, esi_client, esi_security, bot):
 
         for user_key, character_key, tokens in schedule_characters(
                 user_characters,
-                notification_phase, NOTIFICATION_PHASES,
+                status_phase, STATUS_PHASES,
                 esi_app, esi_client
         ):
 
