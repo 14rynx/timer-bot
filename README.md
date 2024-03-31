@@ -3,6 +3,11 @@
 A discord bot that should notify you when your structures have been attacked, or are running low on fuel.
 If you just want to know what is going on, without having to run a full Alliance Auth or SEAT just for this one feature.
 
+## Inviting the bot
+
+If you want to set up this bot quickly, you can use the following [invite link](https://discord.com/oauth2/authorize?client_id=1180817944813518879&permissions=3072&scope=bot).
+For any things regarding maintenance I will try to notify people on [this discord sever](https://discord.com/invite/fT3eShrg5g).
+
 ## Setup
 
 Since we need to connect to both ESI and discord, there is sadly still some things to do.
