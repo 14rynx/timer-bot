@@ -1,4 +1,5 @@
 import _gdbm
+import asyncio
 import logging
 import os
 import secrets
