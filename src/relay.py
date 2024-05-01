@@ -30,9 +30,6 @@ logger.setLevel(logging.DEBUG)
 notification_phase = -1
 status_phase = -1
 
-notification_lock = asyncio.Lock()
-
-
 def build_notification_message(notification, esi_app, esi_client):
     structure_name = get_structure_name(notification, esi_app, esi_client)
     match notification.get('type'):
@@ -81,34 +78,33 @@ def is_structure_notification(notification):
 async def send_notification_message(notification, channel, character_key, user_key, esi_app, esi_client):
     logger.debug("Sending notification message")
 
-    async with notification_lock:
-        # Fail if the notification is an error or None
-        if notification is None or type(notification) is str:
-            logger.debug(f"Skipping a None or str type notification")
+    # Fail if the notification is an error or None
+    if notification is None or type(notification) is str:
+        logger.debug(f"Skipping a None or str type notification")
+        return
+
+    notification_id = str(notification.get("notification_id"))
+
+    if not is_structure_notification(notification):
+        logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification")
+        return
+
+    with shelve.open('../data/old_notifications') as old_notifications:
+        # Check if this notification was sent out previously and skip it
+
+        if notification_id in old_notifications:
+            logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
             return
 
-        notification_id = str(notification.get("notification_id"))
-
-        if not is_structure_notification(notification):
-            logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification")
-            return
-
-        with shelve.open('../data/old_notifications') as old_notifications:
-            # Check if this notification was sent out previously and skip it
-
-            if notification_id in old_notifications:
-                logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
-                return
-
-            try:
-                if len(message := build_notification_message(notification, esi_app, esi_client)) > 0:
-                    await channel.send(message)
-                    logger.info(f"Sent notification to user {user_key} character {character_key}")
-            except Exception as e:
-                logger.error(f"Could not send notification to user {user_key} character {character_key}: {e}")
-            else:
-                # Set that this notification was handled
-                old_notifications[notification_id] = "handled"
+        try:
+            if len(message := build_notification_message(notification, esi_app, esi_client)) > 0:
+                await channel.send(message)
+                logger.info(f"Sent notification to user {user_key} character {character_key}")
+        except Exception as e:
+            logger.error(f"Could not send notification to user {user_key} character {character_key}: {e}")
+        else:
+            # Set that this notification was handled
+            old_notifications[notification_id] = "handled"
 
 
 async def send_state_message(structure, channel, character_key="", user_key=""):
@@ -246,6 +242,7 @@ async def notification_pings(action_lock, esi_app, esi_client, esi_security, bot
 
             # Fetch notifications from character
             try:
+                logger.debug(f"Updating tokens {tokens}.")
                 esi_security.update_token(tokens)
             except APIException:
                 logger.warning(f"Got an API Exception with user: {user_key} character: {character_key}.")
@@ -255,7 +252,7 @@ async def notification_pings(action_lock, esi_app, esi_client, esi_security, bot
             notification_response = esi_client.request(op)
 
             # Send Messages for notifications
-            for notification in reversed(notification_response.data):
+            for notification in reversed(notification_response.data) :
                 await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
                                                 esi_client)
 
@@ -287,6 +284,7 @@ async def status_pings(action_lock, esi_app, esi_client, esi_security, bot):
 
             # Fetch structure info from character
             try:
+                logger.debug(f"Updating tokens {tokens}.")
                 esi_security.update_token(tokens)
             except APIException:
                 logger.warning(f"Got an API Exception with user: {user_key} character: {character_key}.")
