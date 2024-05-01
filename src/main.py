@@ -10,7 +10,7 @@ import discord
 from discord.ext import commands
 
 from callback_server import callback_server
-from relay import notification_pings, status_pings, refresh_tokens
+from relay import notification_pings, status_pings
 from structure_info import structure_info
 
 # Fix for Mutable Mapping collection being moved
@@ -52,6 +52,7 @@ bot = commands.Bot(command_prefix='!', intents=intent)
 # Setup Lock for actions
 action_lock = asyncio.Lock()
 
+
 async def set_callback(ctx, overwrite=False):
     try:
         user_key = str(ctx.author.id)
@@ -74,7 +75,6 @@ async def set_callback(ctx, overwrite=False):
 
 @bot.event
 async def on_ready():
-    refresh_tokens.start(action_lock, esi_app, esi_client, esi_security, bot)
     notification_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
     status_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
     callback_server.start(action_lock, esi_app, esi_client, esi_security)
