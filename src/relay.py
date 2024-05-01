@@ -179,7 +179,7 @@ async def send_token_warning(character_name, channel, character_key, user_key):
         logger.error(f"Could not send scope warning to user {user_key} character {character_key}: {e}")
 
 
-def schedule_characters(action_lock, phase, phases, esi_app, esi_client):
+async def schedule_characters(action_lock, phase, phases, esi_app, esi_client):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
 
@@ -223,7 +223,7 @@ async def notification_pings(action_lock, esi_app, esi_client, esi_security, bot
 
         logger.debug(f"running notification_pings in phase {notification_phase}")
 
-        for user_key, character_key, tokens in schedule_characters(
+        async for user_key, character_key, tokens in schedule_characters(
                 action_lock,
                 notification_phase, NOTIFICATION_PHASES,
                 esi_app, esi_client
@@ -264,7 +264,7 @@ async def status_pings(action_lock, esi_app, esi_client, esi_security, bot):
 
         logger.debug(f"running status_pings in phase {status_phase}")
 
-        for user_key, character_key, tokens in schedule_characters(
+        async for user_key, character_key, tokens in schedule_characters(
                 action_lock,
                 status_phase, STATUS_PHASES,
                 esi_app, esi_client
