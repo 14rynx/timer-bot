@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import shelve
 import sys
@@ -28,6 +29,8 @@ logger.setLevel(logging.DEBUG)
 # Configure iteration variables
 notification_phase = -1
 status_phase = -1
+
+notification_lock = asyncio.Lock()
 
 
 def build_notification_message(notification, esi_app, esi_client):
@@ -78,32 +81,34 @@ def is_structure_notification(notification):
 async def send_notification_message(notification, channel, character_key, user_key, esi_app, esi_client):
     logger.debug("Sending notification message")
 
-    # Fail if the notification is an error or None
-    if notification is None or type(notification) is str:
-        logger.debug(f"Skipping a None or str type notification")
-        return
-
-    if not is_structure_notification(notification):
-        notification_id = notification.get("notification_id")
-        logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification")
-        return
-
-    with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
-        # Check if this notification was sent out previously and skip it
-
-        if (notification_id := str(notification.get("notification_id"))) in old_notifications:
-            logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
+    async with notification_lock:
+        # Fail if the notification is an error or None
+        if notification is None or type(notification) is str:
+            logger.debug(f"Skipping a None or str type notification")
             return
 
-        try:
-            if len(message := build_notification_message(notification, esi_app, esi_client)) > 0:
-                await channel.send(message)
-                logger.info(f"Sent notification to user {user_key} character {character_key}")
-        except Exception as e:
-            logger.error(f"Could not send notification to user {user_key} character {character_key}: {e}")
-        else:
-            # Set that this notification was handled
-            old_notifications[notification_id] = "handled"
+        notification_id = str(notification.get("notification_id"))
+
+        if not is_structure_notification(notification):
+            logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification")
+            return
+
+        with shelve.open('../data/old_notifications') as old_notifications:
+            # Check if this notification was sent out previously and skip it
+
+            if notification_id in old_notifications:
+                logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
+                return
+
+            try:
+                if len(message := build_notification_message(notification, esi_app, esi_client)) > 0:
+                    await channel.send(message)
+                    logger.info(f"Sent notification to user {user_key} character {character_key}")
+            except Exception as e:
+                logger.error(f"Could not send notification to user {user_key} character {character_key}: {e}")
+            else:
+                # Set that this notification was handled
+                old_notifications[notification_id] = "handled"
 
 
 async def send_state_message(structure, channel, character_key="", user_key=""):
