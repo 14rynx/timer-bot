@@ -48,6 +48,8 @@ intent.messages = True
 intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
 
+# Setup Lock for actions
+action_lock = asyncio.Lock()
 
 async def set_callback(ctx, overwrite=False):
     try:
@@ -71,10 +73,10 @@ async def set_callback(ctx, overwrite=False):
 
 @bot.event
 async def on_ready():
-    refresh_tokens.start(esi_app, esi_client, esi_security, bot)
-    notification_pings.start(esi_app, esi_client, esi_security, bot)
-    status_pings.start(esi_app, esi_client, esi_security, bot)
-    callback_server.start(esi_app, esi_client, esi_security)
+    refresh_tokens.start(action_lock, esi_app, esi_client, esi_security, bot)
+    notification_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
+    status_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
+    callback_server.start(action_lock, esi_app, esi_client, esi_security)
 
 
 @bot.command()

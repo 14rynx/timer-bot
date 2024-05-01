@@ -23,7 +23,7 @@ STATUS_PHASES = 12
 
 # Configure the logger
 logger = logging.getLogger('discord.relay')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Configure iteration variables
 notification_phase = -1
@@ -86,6 +86,7 @@ async def send_notification_message(notification, channel, character_key, user_k
     with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
         # Check if this notification was sent out previously and skip it
         if (notification_id := str(notification.get("notification_id"))) in old_notifications:
+            logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
             return
 
         try:
@@ -178,39 +179,42 @@ async def send_token_warning(character_name, channel, character_key, user_key):
         logger.error(f"Could not send scope warning to user {user_key} character {character_key}: {e}")
 
 
-def schedule_characters(user_characters, phase, phases, esi_app, esi_client):
+def schedule_characters(action_lock, phase, phases, esi_app, esi_client):
     """returns a subset of characters such that if all characters could get the same notification,
     it is fetched as early as possible.
 
     Requires the notification loop to be run more often than just for cache time by NOTIFICATION_PHASES"""
 
-    corporation_tokens = {}
+    with action_lock:
+        with shelve.open('../data/user_characters') as user_characters:
+            corporation_tokens = {}
 
-    # Sort all registered characters by corporation
-    for user_key, characters in user_characters.items():
-        for character_key, tokens in user_characters[user_key].items():
+            # Sort all registered characters by corporation
+            for user_key, characters in user_characters.items():
+                for character_key, tokens in user_characters[user_key].items():
 
-            # Get corporation ID from character
-            op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-            corporation_id = esi_client.request(op).data.get("corporation_id")
+                    # Get corporation ID from character
+                    op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+                    corporation_id = esi_client.request(op).data.get("corporation_id")
 
-            if corporation_id in corporation_tokens:
-                corporation_tokens[corporation_id].append([user_key, character_key, tokens])
-            else:
-                corporation_tokens[corporation_id] = [[user_key, character_key, tokens]]
+                    if corporation_id in corporation_tokens:
+                        corporation_tokens[corporation_id].append([user_key, character_key, tokens])
+                    else:
+                        corporation_tokens[corporation_id] = [[user_key, character_key, tokens]]
 
-    # Now go through each corporation and run depending on the phase
-    for corporation_id, token_list in corporation_tokens.items():
-        characters_in_corporation = len(token_list)
+            # Now go through each corporation and run depending on the phase
+            for corporation_id, token_list in corporation_tokens.items():
+                characters_in_corporation = len(token_list)
 
-        for i, (user_key, character_key, tokens) in enumerate(token_list):
-            if phase == int(i / characters_in_corporation * phases):
-                logger.debug(f"scheduling corporation: {corporation_id} user: {user_key} character: {character_key}")
-                yield user_key, character_key, tokens
+                for i, (user_key, character_key, tokens) in enumerate(token_list):
+                    if phase == int(i / characters_in_corporation * phases):
+                        logger.debug(
+                            f"scheduling corporation: {corporation_id} user: {user_key} character: {character_key}")
+                        yield user_key, character_key, tokens
 
 
 @tasks.loop(seconds=NOTIFICATION_CACHE_TIME // NOTIFICATION_PHASES + 1)
-async def notification_pings(esi_app, esi_client, esi_security, bot):
+async def notification_pings(action_lock, esi_app, esi_client, esi_security, bot):
     """Periodically fetch notifications from ESI"""
     try:
         # Increment phase
@@ -219,10 +223,8 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
 
         logger.debug(f"running notification_pings in phase {notification_phase}")
 
-        user_characters = shelve.open('../data/user_characters')
-
         for user_key, character_key, tokens in schedule_characters(
-                user_characters,
+                action_lock,
                 notification_phase, NOTIFICATION_PHASES,
                 esi_app, esi_client
         ):
@@ -235,112 +237,106 @@ async def notification_pings(esi_app, esi_client, esi_security, bot):
             try:
                 esi_security.update_token(tokens)
             except APIException:
+                logger.warning(f"Got an API Exception with user: {user_key} character: {character_key}.")
                 continue
 
             op = esi_app.op['get_characters_character_id_notifications'](character_id=int(character_key))
             notification_response = esi_client.request(op)
-
-            date = notification_response.header.get("Date")
-            logger.debug(f"notification info from {date}")
 
             # Send Messages for notifications
             for notification in reversed(notification_response.data):
                 await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
                                                 esi_client)
 
-
     except APIException:
         logger.error("Got an api exception phase failed!")
     except Exception as e:
         logger.error(f"Got an unhandled exception in notification_pings: {e}", exc_info=True)
-    finally:
-        user_characters.close()
 
 
 @tasks.loop(seconds=STATUS_CACHE_TIME // STATUS_PHASES + 1)
-async def status_pings(esi_app, esi_client, esi_security, bot):
+async def status_pings(action_lock, esi_app, esi_client, esi_security, bot):
     """Periodically fetch structure state apu from ESI"""
-    try:
-        # Increment phase
-        global status_phase
-        status_phase = (status_phase + 1) % STATUS_PHASES
+    with action_lock:
+        try:
+            # Increment phase
+            global status_phase
+            status_phase = (status_phase + 1) % STATUS_PHASES
 
-        logger.debug(f"running status_pings in phase {status_phase}")
+            logger.debug(f"running status_pings in phase {status_phase}")
 
-        user_characters = shelve.open('../data/user_characters')
-
-        for user_key, character_key, tokens in schedule_characters(
-                user_characters,
-                status_phase, STATUS_PHASES,
-                esi_app, esi_client
-        ):
-
-            # Retrieve the channel associated with the user
-            with shelve.open('../data/user_channels') as user_channels:
-                user_channel = bot.get_channel(user_channels.get(user_key))
-
-            # Fetch structure info from character
-            try:
-                esi_security.update_token(tokens)
-            except APIException:
-                continue
-
-            # Get corporation ID from character
-            op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-            response_data = esi_client.request(op).data
-            corporation_id = response_data.get("corporation_id")
-            character_name = response_data.get("name")
-
-            # Fetch structure data from character
-            op = esi_app.op['get_corporations_corporation_id_structures'](corporation_id=corporation_id)
-            results = esi_client.request(op)
-
-            # Extracting and formatting data
-            for result_entry in results.data:
-                if result_entry is None:
-                    continue
-
-                if type(result_entry) is str:
-                    # We have some kind of error, but since the library is a bit wired we get one str at a time
-                    if result_entry == "Character does not have required role(s)":
-                        await send_permission_warning(character_name, user_channel, character_key, user_key)
-                    continue
-
-                await send_state_message(result_entry, user_channel, character_key, user_key)
-                await send_fuel_message(result_entry, user_channel, character_key, user_key)
-
-    except APIException:
-        logger.error("Got an api exception phase failed!")
-    except Exception as e:
-        logger.error(f"Got an unhandled exception in status_pings: {e}", exc_info=True)
-    finally:
-        user_characters.close()
-
-
-@tasks.loop(hours=49)
-async def refresh_tokens(esi_app, esi_client, esi_security, bot):
-    """Periodically fetch structure state apu from ESI"""
-    try:
-        logger.debug("refreshing_tokens")
-
-        with shelve.open('../data/user_characters', writeback=True) as user_characters:
-            for user_key, characters in user_characters.items():
+            for user_key, character_key, tokens in schedule_characters(
+                    action_lock,
+                    status_phase, STATUS_PHASES,
+                    esi_app, esi_client
+            ):
 
                 # Retrieve the channel associated with the user
                 with shelve.open('../data/user_channels') as user_channels:
                     user_channel = bot.get_channel(user_channels.get(user_key))
 
-                for character_key, tokens in characters.items():
-                    try:
-                        esi_security.update_token(tokens)
-                        user_characters[user_key][character_key] = esi_security.refresh()
-                    except APIException:
-                        # Tokens are already expired somehow -> let the user fix it
-                        op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
-                        character_name = esi_client.request(op).data.get("name")
-                        await send_token_warning(character_name, user_channel, character_key, user_key)
+                # Fetch structure info from character
+                try:
+                    esi_security.update_token(tokens)
+                except APIException:
+                    logger.warning(f"Got an API Exception with user: {user_key} character: {character_key}.")
+                    continue
 
-    except APIException:
-        logger.error("Got an api exception refresh failed!")
-    except Exception as e:
-        logger.error(f"Got an unhandled exception in refresh_tokens: {e}", exc_info=True)
+                # Get corporation ID from character
+                op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+                response_data = esi_client.request(op).data
+                corporation_id = response_data.get("corporation_id")
+                character_name = response_data.get("name")
+
+                # Fetch structure data from character
+                op = esi_app.op['get_corporations_corporation_id_structures'](corporation_id=corporation_id)
+                results = esi_client.request(op)
+
+                # Extracting and formatting data
+                for result_entry in results.data:
+                    if result_entry is None:
+                        continue
+
+                    if type(result_entry) is str:
+                        # We have some kind of error, but since the library is a bit wired we get one str at a time
+                        if result_entry == "Character does not have required role(s)":
+                            await send_permission_warning(character_name, user_channel, character_key, user_key)
+                        continue
+
+                    await send_state_message(result_entry, user_channel, character_key, user_key)
+                    await send_fuel_message(result_entry, user_channel, character_key, user_key)
+
+        except APIException:
+            logger.error("Got an api exception phase failed!")
+        except Exception as e:
+            logger.error(f"Got an unhandled exception in status_pings: {e}", exc_info=True)
+
+
+@tasks.loop(hours=49)
+async def refresh_tokens(action_lock, esi_app, esi_client, esi_security, bot):
+    with action_lock:
+        """Periodically fetch structure state apu from ESI"""
+        try:
+            logger.debug("refreshing_tokens")
+
+            with shelve.open('../data/user_characters', writeback=True) as user_characters:
+                for user_key, characters in user_characters.items():
+
+                    # Retrieve the channel associated with the user
+                    with shelve.open('../data/user_channels') as user_channels:
+                        user_channel = bot.get_channel(user_channels.get(user_key))
+
+                    for character_key, tokens in characters.items():
+                        try:
+                            esi_security.update_token(tokens)
+                            user_characters[user_key][character_key] = esi_security.refresh()
+                        except APIException:
+                            # Tokens are already expired somehow -> let the user fix it
+                            op = esi_app.op['get_characters_character_id'](character_id=int(character_key))
+                            character_name = esi_client.request(op).data.get("name")
+                            await send_token_warning(character_name, user_channel, character_key, user_key)
+
+        except APIException:
+            logger.error("Got an api exception refresh failed!")
+        except Exception as e:
+            logger.error(f"Got an unhandled exception in refresh_tokens: {e}", exc_info=True)

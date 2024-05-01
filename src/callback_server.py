@@ -20,7 +20,7 @@ logger.setLevel(logging.INFO)
 
 
 @tasks.loop()
-async def callback_server(esi_app, esi_client, esi_security):
+async def callback_server(action_lock, esi_app, esi_client, esi_security):
     routes = web.RouteTableDef()
 
     @routes.get('/')
@@ -51,23 +51,24 @@ async def callback_server(esi_app, esi_client, esi_security):
             return web.Response(text="Authentication failed: Token Invalid", status=403)
 
         # Store tokens under author
-        with shelve.open('../data/user_characters', writeback=True) as author_character_tokens:
-            if author_id not in author_character_tokens:
-                author_character_tokens[author_id] = {character_id: tokens}
-            else:
-                author_character_tokens[author_id][character_id] = tokens
+        with action_lock:
+            with shelve.open('../data/user_characters', writeback=True) as author_character_tokens:
+                if author_id not in author_character_tokens:
+                    author_character_tokens[author_id] = {character_id: tokens}
+                else:
+                    author_character_tokens[author_id][character_id] = tokens
 
-        # Mark all old notifications as read
-        op = esi_app.op['get_characters_character_id_notifications'](character_id=character_id)
-        response = esi_client.request(op)
+            # Mark all old notifications as read
+            op = esi_app.op['get_characters_character_id_notifications'](character_id=character_id)
+            response = esi_client.request(op)
 
-        with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
-            for notification in response.data:
-                notification_type = notification.get('type')
-                notification_id = notification.get("notification_id")
+            with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
+                for notification in response.data:
+                    notification_type = notification.get('type')
+                    notification_id = notification.get("notification_id")
 
-                if "Structure" in notification_type:
-                    old_notifications[str(notification_id)] = "skipped"
+                    if "Structure" in notification_type:
+                        old_notifications[str(notification_id)] = "skipped"
 
         logger.info(f"added {character_id}")
         return web.Response(text=f"Sucessfully authentiated {character_name}!")
