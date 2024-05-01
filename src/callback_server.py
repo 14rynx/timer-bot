@@ -51,7 +51,7 @@ async def callback_server(action_lock, esi_app, esi_client, esi_security):
             return web.Response(text="Authentication failed: Token Invalid", status=403)
 
         # Store tokens under author
-        with action_lock:
+        async with action_lock:
             with shelve.open('../data/user_characters', writeback=True) as author_character_tokens:
                 if author_id not in author_character_tokens:
                     author_character_tokens[author_id] = {character_id: tokens}
