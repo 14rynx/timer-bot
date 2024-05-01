@@ -76,15 +76,21 @@ def is_structure_notification(notification):
 
 
 async def send_notification_message(notification, channel, character_key, user_key, esi_app, esi_client):
+    logger.debug("Sending notification message")
+
     # Fail if the notification is an error or None
     if notification is None or type(notification) is str:
+        logger.debug(f"Skipping a None or str type notification")
         return
 
     if not is_structure_notification(notification):
+        notification_id = notification.get("notification_id")
+        logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification")
         return
 
     with shelve.open('../data/old_notifications', writeback=True) as old_notifications:
         # Check if this notification was sent out previously and skip it
+
         if (notification_id := str(notification.get("notification_id"))) in old_notifications:
             logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
             return
