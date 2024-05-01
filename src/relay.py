@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import shelve
 import sys
@@ -29,6 +28,7 @@ logger.setLevel(logging.INFO)
 # Configure iteration variables
 notification_phase = -1
 status_phase = -1
+
 
 def build_notification_message(notification, esi_app, esi_client):
     structure_name = get_structure_name(notification, esi_app, esi_client)
@@ -79,21 +79,24 @@ async def send_notification_message(notification, channel, character_key, user_k
     logger.debug("Sending notification message")
 
     # Fail if the notification is an error or None
-    if notification is None or type(notification) is str:
-        logger.debug(f"Skipping a None or str type notification")
+    if notification is None:
+        logger.error(f"Got a None type notification with User {user_key} & Character {character_key}.")
+        return
+
+    if type(notification) is str:
+        logger.error(f"Got a str notification: {notification} with User {user_key} & Character {character_key}.")
         return
 
     notification_id = str(notification.get("notification_id"))
 
     if not is_structure_notification(notification):
-        logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification")
+        logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification.")
         return
 
     with shelve.open('../data/old_notifications') as old_notifications:
-        # Check if this notification was sent out previously and skip it
 
         if notification_id in old_notifications:
-            logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent")
+            logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent.")
             return
 
         try:
@@ -103,7 +106,6 @@ async def send_notification_message(notification, channel, character_key, user_k
         except Exception as e:
             logger.error(f"Could not send notification to user {user_key} character {character_key}: {e}")
         else:
-            # Set that this notification was handled
             old_notifications[notification_id] = "handled"
 
 
@@ -215,8 +217,7 @@ async def schedule_characters(action_lock, phase, phases, esi_app, esi_client):
 
                 for i, (user_key, character_key, tokens) in enumerate(token_list):
                     if phase == int(i / characters_in_corporation * phases):
-                        logger.debug(
-                            f"scheduling corporation: {corporation_id} user: {user_key} character: {character_key}")
+                        logger.debug(f"Scheduling Corporation: {corporation_id} User: {user_key} Character: {character_key}.")
                         yield user_key, character_key, tokens
 
 
@@ -228,7 +229,7 @@ async def notification_pings(action_lock, esi_app, esi_client, esi_security, bot
         global notification_phase
         notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
 
-        logger.debug(f"running notification_pings in phase {notification_phase}")
+        logger.debug(f"Running notification_pings in phase {notification_phase}.")
 
         async for user_key, character_key, tokens in schedule_characters(
                 action_lock,
@@ -252,14 +253,14 @@ async def notification_pings(action_lock, esi_app, esi_client, esi_security, bot
             notification_response = esi_client.request(op)
 
             # Send Messages for notifications
-            for notification in reversed(notification_response.data) :
+            for notification in reversed(notification_response.data):
                 await send_notification_message(notification, user_channel, character_key, user_key, esi_app,
                                                 esi_client)
 
     except APIException:
-        logger.error("Got an api exception phase failed!")
+        logger.error("Got an API exception - notification_pings phase failed!")
     except Exception as e:
-        logger.error(f"Got an unhandled exception in notification_pings: {e}", exc_info=True)
+        logger.error(f"Got an unhandled exception in notification_pings: {e}.", exc_info=True)
 
 
 @tasks.loop(seconds=STATUS_CACHE_TIME // STATUS_PHASES + 1)
@@ -270,7 +271,7 @@ async def status_pings(action_lock, esi_app, esi_client, esi_security, bot):
         global status_phase
         status_phase = (status_phase + 1) % STATUS_PHASES
 
-        logger.debug(f"running status_pings in phase {status_phase}")
+        logger.debug(f"Running status_pings in phase {status_phase}.")
 
         async for user_key, character_key, tokens in schedule_characters(
                 action_lock,
@@ -316,9 +317,9 @@ async def status_pings(action_lock, esi_app, esi_client, esi_security, bot):
                 await send_fuel_message(result_entry, user_channel, character_key, user_key)
 
     except APIException:
-        logger.error("Got an api exception phase failed!")
+        logger.error("Got an API exception - status_pings phase failed!")
     except Exception as e:
-        logger.error(f"Got an unhandled exception in status_pings: {e}", exc_info=True)
+        logger.error(f"Got an unhandled exception in status_pings: {e}.", exc_info=True)
 
 
 @tasks.loop(hours=49)
@@ -326,7 +327,7 @@ async def refresh_tokens(action_lock, esi_app, esi_client, esi_security, bot):
     async with action_lock:
         """Periodically fetch structure state apu from ESI"""
         try:
-            logger.debug("refreshing_tokens")
+            logger.debug("Refreshing tokens...")
 
             with shelve.open('../data/user_characters', writeback=True) as user_characters:
                 for user_key, characters in user_characters.items():
@@ -346,6 +347,6 @@ async def refresh_tokens(action_lock, esi_app, esi_client, esi_security, bot):
                             await send_token_warning(character_name, user_channel, character_key, user_key)
 
         except APIException:
-            logger.error("Got an api exception refresh failed!")
+            logger.error("Got an API exception - refresh failed!")
         except Exception as e:
-            logger.error(f"Got an unhandled exception in refresh_tokens: {e}", exc_info=True)
+            logger.error(f"Got an unhandled exception in refresh_tokens: {e}.", exc_info=True)
