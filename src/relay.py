@@ -93,6 +93,10 @@ async def send_notification_message(notification, channel, character_key, user_k
         logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification.")
         return
 
+    if channel is None:
+        logger.warning(f"User {user_key} character {character_key} has no valid channel and can not be notified!")
+        return
+
     with shelve.open('../data/old_notifications') as old_notifications:
 
         if notification_id in old_notifications:
@@ -115,6 +119,10 @@ async def send_state_message(structure, channel, character_key="", user_key=""):
     with shelve.open('../data/structure_states', writeback=True) as structure_states:
         if (structure_key := str(structure.get('structure_id'))) in structure_states:
             if not structure_states[structure_key] == structure_state:
+                if channel is None:
+                    logger.warning(f"User {user_key} character {character_key} has no valid channel and can not be notified!")
+                    return
+
                 try:
                     await channel.send(
                         f"Structure {structure.get('name')} changed state:\n"
@@ -142,12 +150,21 @@ async def send_state_message(structure, channel, character_key="", user_key=""):
 
 async def send_fuel_message(structure, channel, character_key="", user_key=""):
     """given a structure object and a channel, send a message if fuel went low"""
-    with shelve.open('../data/structure_fuel', writeback=True) as structure_fuel:
-        if (structure_key := str(structure.get('structure_id'))) in structure_fuel:
-            if not structure_fuel[structure_key] == fuel_warning(structure):
+    with shelve.open('../data/structure_fuel', writeback=True) as structure_last_fuel_warning:
+        current_fuel_warning = fuel_warning(structure)
+        if current_fuel_warning is None:
+            # Structure anchoring, we skip fuel for now
+            return
+
+        if (structure_key := str(structure.get('structure_id'))) in structure_last_fuel_warning:
+            if not structure_last_fuel_warning[structure_key] == current_fuel_warning:
+                if channel is None:
+                    logger.warning(f"User {user_key} character {character_key} has no valid channel and can not be notified!")
+                    return
+
                 try:
                     await channel.send(
-                        f"{fuel_warning(structure)}-day warning, structure {structure.get('name')} is running low on fuel:\n"
+                        f"{current_fuel_warning}-day warning, structure {structure.get('name')} is running low on fuel:\n"
                         f"{structure_info(structure)}"
                     )
                     logger.info(f"Sent fuel warning to user {user_key} character {character_key}")
@@ -155,11 +172,11 @@ async def send_fuel_message(structure, channel, character_key="", user_key=""):
                     logger.error(f"Could not send fuel warning to user {user_key} character {character_key}: {e}")
                 else:
                     # The message has been sent without any exception, so we can update our db
-                    structure_fuel[structure_key] = fuel_warning(structure)
+                    structure_last_fuel_warning[structure_key] = current_fuel_warning
 
         else:
             # Add structure to fuel db quietly
-            structure_fuel[structure_key] = fuel_warning(structure)
+            structure_last_fuel_warning[structure_key] = current_fuel_warning
 
 
 async def send_permission_warning(character_name, channel, character_key, user_key):

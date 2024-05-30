@@ -30,26 +30,38 @@ def structure_info(structure) -> str:
     structure_message += f"**State:** {formatted_state}\n"
 
     if state in ["hull_reinforce", "armor_reinforce", "anchoring"]:
-        state_expires = structure.get('state_timer_end').v
-        state_expires_rd = state_expires.strftime('%d.%m.%y %H:%M ET')
-        state_expires_ts = int(state_expires.timestamp())
-        structure_message += f"**Timer:** <t:{state_expires_ts}> (<t:{state_expires_ts}:R>) ({state_expires_rd})\n"
+        state_expires = structure.get('state_timer_end')
+        if state_expires:
+            state_expires_rd = state_expires.v.strftime('%d.%m.%y %H:%M ET')
+            state_expires_ts = int(state_expires.timestamp())
+            structure_message += f"**Timer:** <t:{state_expires_ts}> (<t:{state_expires_ts}:R>) ({state_expires_rd})\n"
+        else:
+            structure_message += f"**Timer:** Unknown, please check manually!\n"
 
-    fuel_expires = structure.get('fuel_expires').v
-    fuel_expires_rd = fuel_expires.strftime('%d.%m.%y %H:%M ET')
-    fuel_expires_ts = int(fuel_expires.timestamp())
-    structure_message += f"**Fuel:** <t:{fuel_expires_ts}> (<t:{fuel_expires_ts}:R>) ({fuel_expires_rd})\n"
+    fuel_expires = structure.get('fuel_expires')
+    if fuel_expires:
+        fuel_expires_rd = fuel_expires.v.strftime('%d.%m.%y %H:%M ET')
+        fuel_expires_ts = int(fuel_expires.v.timestamp())
+        structure_message += f"**Fuel:** <t:{fuel_expires_ts}> (<t:{fuel_expires_ts}:R>) ({fuel_expires_rd})\n"
+    else:
+        # fuel_expires is None e.g. structure is anchoring
+        structure_message += f"**Fuel:** Not fueled yet (anchoring)\n"
 
     return structure_message
 
 
 def fuel_warning(structure):
-    fuel_expires = structure.get('fuel_expires').v
-    time_left = fuel_expires - datetime.now(tz=timezone.utc)
+    fuel_expires = structure.get('fuel_expires')
+    if fuel_expires:
+        time_left = fuel_expires.v - datetime.now(tz=timezone.utc)
 
-    for fuel_warning_days in fuel_warnings:
-        if time_left > timedelta(days=fuel_warning_days):
-            return fuel_warning_days
+        for fuel_warning_days in fuel_warnings:
+            if time_left > timedelta(days=fuel_warning_days):
+                return fuel_warning_days
 
-    if time_left.days < 0:
-        return 0
+        if time_left.days < 0:
+            return 0
+    else:
+        # fuel_expires is None e.g. structure is anchoring
+        return None
+
