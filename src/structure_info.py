@@ -33,7 +33,7 @@ def structure_info(structure) -> str:
         state_expires = structure.get('state_timer_end')
         if state_expires:
             state_expires_rd = state_expires.v.strftime('%d.%m.%y %H:%M ET')
-            state_expires_ts = int(state_expires.timestamp())
+            state_expires_ts = int(state_expires.v.timestamp())
             structure_message += f"**Timer:** <t:{state_expires_ts}> (<t:{state_expires_ts}:R>) ({state_expires_rd})\n"
         else:
             structure_message += f"**Timer:** Unknown, please check manually!\n"
