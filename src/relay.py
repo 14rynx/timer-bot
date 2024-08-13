@@ -164,7 +164,7 @@ async def send_fuel_message(structure, channel, character_key="", user_key=""):
 
                 try:
                     await channel.send(
-                        f"{current_fuel_warning}-day warning, structure {structure.get('name')} is running low on fuel:\n"
+                        f"{structure_last_fuel_warning[structure_key]}-day warning, structure {structure.get('name')} is running low on fuel:\n"
                         f"{structure_info(structure)}"
                     )
                     logger.info(f"Sent fuel warning to user {user_key} character {character_key}")
