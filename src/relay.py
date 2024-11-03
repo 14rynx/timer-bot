@@ -163,11 +163,18 @@ async def send_fuel_message(structure, channel, character_key="", user_key=""):
                     return
 
                 try:
-                    await channel.send(
-                        f"{structure_last_fuel_warning[structure_key]}-day warning, structure {structure.get('name')} is running low on fuel:\n"
-                        f"{structure_info(structure)}"
-                    )
-                    logger.info(f"Sent fuel warning to user {user_key} character {character_key}")
+                    if current_fuel_warning > structure_last_fuel_warning[structure_key]:
+                        await channel.send(
+                            f"Structure {structure.get('name')} has been refueled:\n"
+                            f"{structure_info(structure)}"
+                        )
+                        logger.info(f"Sent refuel info to user {user_key} character {character_key}")
+                    else:
+                        await channel.send(
+                            f"{structure_last_fuel_warning[structure_key]}-day warning, structure {structure.get('name')} is running low on fuel:\n"
+                            f"{structure_info(structure)}"
+                        )
+                        logger.info(f"Sent fuel warning to user {user_key} character {character_key}")
                 except Exception as e:
                     logger.error(f"Could not send fuel warning to user {user_key} character {character_key}: {e}")
                 else:
