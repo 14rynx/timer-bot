@@ -73,11 +73,30 @@ async def set_callback(ctx, overwrite=False):
         await ctx.send("Currently busy with another command!")
 
 
+async def log_statistics():
+    """Log the number of users and their characters on bot startup."""
+    try:
+        with shelve.open('../data/user_characters', writeback=False) as user_characters:
+            with shelve.open('../data/user_channels', writeback=False) as user_channels:
+                total_users = len(user_characters)
+                logger.info(f"Total users: {total_users}")
+
+                for user_key, characters in user_characters.items():
+                    linked_channel = user_channels.get(user_key, "-")
+
+                    character_list = ", ".join(characters.keys())
+                    logger.info(f"User ID: {user_key}, Linked Channel: {linked_channel}, Character IDs: {character_list}")
+
+    except Exception as e:
+        logger.error(f"Error while logging users and characters: {e}")
+
+
 @bot.event
 async def on_ready():
     notification_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
     status_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
     callback_server.start(action_lock, esi_app, esi_client, esi_security)
+    await log_statistics()
 
 
 @bot.command()
