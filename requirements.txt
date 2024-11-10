@@ -1,4 +1,3 @@
-requests
-Pyyaml
-EsiPy
 discord
+peewee
+Preston
