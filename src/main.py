@@ -1,5 +1,6 @@
 import _gdbm
 import asyncio
+import functools
 import logging
 import os
 import secrets
@@ -91,6 +92,22 @@ async def log_statistics():
         logger.error(f"Error while logging users and characters: {e}")
 
 
+def command_error_handler(func):
+    """Decorator for handling bot command logging and exceptions."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        ctx = args[0]
+        logger.info(f"{ctx.author.name} used !{func.__name__}")
+
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in !{func.__name__} command: {e}", exc_info=True)
+            await ctx.send(f"An error occurred in !{func.__name__}.")
+
+    return wrapper
+
 @bot.event
 async def on_ready():
     notification_pings.start(action_lock, esi_app, esi_client, esi_security, bot)
@@ -100,9 +117,9 @@ async def on_ready():
 
 
 @bot.command()
+@command_error_handler
 async def auth(ctx):
     """Sends you an authorization link for a character."""
-    logger.info(f"{ctx.author.name} used !auth")
 
     # Send an authorization link
     secret_state = secrets.token_urlsafe(30)
@@ -118,17 +135,16 @@ async def auth(ctx):
 
 
 @bot.command()
+@command_error_handler
 async def callback(ctx):
     """Sets the channel where you want to be notified if something happens."""
-    logger.info(f"{ctx.author.name} used !callback")
     await set_callback(ctx, overwrite=True)
 
 
 @bot.command()
+@command_error_handler
 async def characters(ctx):
     """Displays your currently authorized characters."""
-
-    logger.info(f"{ctx.author.name} used !characters")
 
     try:
         user_key = str(ctx.author.id)
@@ -160,10 +176,9 @@ async def characters(ctx):
 
 
 @bot.command()
+@command_error_handler
 async def revoke(ctx, *character_name):
     """Revokes ESI access from your characters."""
-
-    logger.info(f"{ctx.author.name} used !revoke {character_name}")
 
     try:
         user_characters = shelve.open('../data/user_characters', writeback=True)
@@ -213,10 +228,9 @@ async def revoke(ctx, *character_name):
 
 
 @bot.command()
+@command_error_handler
 async def info(ctx):
     """Returns the status of all structures linked."""
-
-    logger.info(f"{ctx.author.name} used !info")
 
     try:
         user_characters = shelve.open('../data/user_characters', writeback=True)
