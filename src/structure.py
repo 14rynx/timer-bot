@@ -27,6 +27,10 @@ state_mapping = {
 fuel_warnings = [30, 7, 3, 2, 1]
 
 
+def to_datetime(time_string):
+    return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ")
+
+
 def structure_info(structure: dict) -> str:
     """Builds a human-readable message containing the state of a structure"""
     state = structure.get('state')
@@ -38,19 +42,15 @@ def structure_info(structure: dict) -> str:
     structure_message += f"**State:** {formatted_state}\n"
 
     if state in ["hull_reinforce", "armor_reinforce", "anchoring"]:
-        state_expires = structure.get('state_timer_end')
+        state_expires = to_datetime(structure.get('state_timer_end'))
         if state_expires:
-            state_expires_rd = state_expires.v.strftime('%d.%m.%y %H:%M ET')
-            state_expires_ts = int(state_expires.v.timestamp())
-            structure_message += f"**Timer:** <t:{state_expires_ts}> (<t:{state_expires_ts}:R>) ({state_expires_rd})\n"
+            structure_message += f"**Timer:** <t:{int(state_expires.timestamp())}> (<t:{int(state_expires.timestamp())}:R>) ({state_expires} ET)\n"
         else:
             structure_message += f"**Timer:** Unknown, please check manually!\n"
 
-    fuel_expires = structure.get('fuel_expires')
+    fuel_expires = to_datetime(structure.get('fuel_expires'))
     if fuel_expires:
-        fuel_expires_rd = fuel_expires.v.strftime('%d.%m.%y %H:%M ET')
-        fuel_expires_ts = int(fuel_expires.v.timestamp())
-        structure_message += f"**Fuel:** <t:{fuel_expires_ts}> (<t:{fuel_expires_ts}:R>) ({fuel_expires_rd})\n"
+        structure_message += f"**Fuel:** <t:{int(fuel_expires.timestamp())}> (<t:{int(fuel_expires.timestamp())}:R>) ({fuel_expires} ET)\n"
     else:
         # fuel_expires is None e.g. structure is anchoring
         structure_message += f"**Fuel:** Not fueled yet (anchoring)\n"
@@ -60,9 +60,9 @@ def structure_info(structure: dict) -> str:
 
 def fuel_warning(structure: dict) -> int or None:
     """Returns the next fuel warning level a structure is currently on"""
-    fuel_expires = structure.get('fuel_expires')
+    fuel_expires = to_datetime(structure.get('fuel_expires'))
     if fuel_expires:
-        time_left = fuel_expires.v - datetime.now(tz=timezone.utc)
+        time_left = fuel_expires - datetime.now(tz=timezone.utc)
 
         for fuel_warning_days in fuel_warnings:
             if time_left > timedelta(days=fuel_warning_days):
