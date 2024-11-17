@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 
 from preston import Preston
 
@@ -28,7 +28,7 @@ fuel_warnings = [30, 7, 3, 2, 1]
 
 
 def to_datetime(time_string):
-    return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ")
+    return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
 def structure_info(structure: dict) -> str:
