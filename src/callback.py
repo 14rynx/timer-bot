@@ -71,10 +71,11 @@ async def callback_server(preston: Preston):
 
         for notification in notifications:
             if is_structure_notification(notification):
-                Notification.create(
+                notification = Notification.get_or_create(
                     notification_id=str(notification.get("notification_id")),
-                    sent=True,
                 )
+                notification.sent = True
+                notification.save()
 
         logger.info(f"Added character {character_id}")
         if created:
