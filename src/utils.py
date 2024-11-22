@@ -55,7 +55,9 @@ async def send_warning(user, channel, warning_text, log_text=""):
             logger.info(f"Sent warning {log_text}.")
         except Exception as e:
             logger.warning(f"Could not send warning {log_text}: {e}")
-        user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=3)).timestamp()
+        else:
+            user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
+            user.save()
 
 
 async def send_notification_permission_warning(user, channel, authed_preston):
