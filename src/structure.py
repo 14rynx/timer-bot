@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timedelta, timezone
 
 from preston import Preston
 
@@ -75,7 +75,7 @@ def fuel_warning(structure: dict) -> int or None:
         return None
 
 
-def build_notification_message(notification: dict, authed_preston: Preston) -> str:
+def structure_notification_message(notification: dict, authed_preston: Preston) -> str:
     """Returns a human-readable message of a structure notification"""
     structure_name = authed_preston.get_op(
         "get_universe_structures_structure_id",

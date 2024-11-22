@@ -4,9 +4,8 @@ import logging
 from discord.ext import tasks
 
 from models import Character, Structure, Notification
-from src.warnings import send_structure_permission_warning
-from structure import build_notification_message, structure_info, fuel_warning, is_structure_notification
-from utils import with_refresh, get_channel
+from structure import structure_notification_message, structure_info, fuel_warning, is_structure_notification
+from utils import with_refresh, get_channel, send_structure_permission_warning
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
@@ -93,7 +92,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
 
     if created:
         try:
-            if len(message := build_notification_message(notification, authed_preston)) > 0:
+            if len(message := structure_notification_message(notification, authed_preston)) > 0:
                 await user_channel.send(message)
                 logger.info(f"Sent notification to {identifier}")
 
