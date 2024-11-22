@@ -39,7 +39,9 @@ bot = commands.Bot(command_prefix='!', intents=intent)
 
 async def set_callback(ctx):
     user = User.get(user_id=str(ctx.author.id))
-    user.callback_channel_id = str(ctx.channel.id)
+    user.callback_channel_id = str(ctx.channeTIMl.id)
+    user.save()
+
     if isinstance(ctx.channel, discord.channel.DMChannel):
         await ctx.send(
             "### WARNING\n"
@@ -216,7 +218,7 @@ async def info(ctx):
     else:
         output += "No structures found!\n"
     if characters_without_permissions:
-        output += "### Warning\n"
+        output += "### WARNING\n"
         output += "The following characters do not have permissions to see structure info:\n"
         output += "\n".join(characters_without_permissions)
 

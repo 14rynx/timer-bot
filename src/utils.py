@@ -62,7 +62,7 @@ async def send_notification_permission_warning(user, channel, authed_preston):
     character_name = authed_preston.whoami()["CharacterName"]
 
     warning_text = f"""
-    ### Warning
+    ### WARNING
     The following character does not have permissions to see notification info:
     {character_name}. If you to not intend to use this character, remove him with 
     `!revoke {character_name}` otherwise, fix your notification permissions in-game.
@@ -75,7 +75,7 @@ async def send_structure_permission_warning(user, channel, authed_preston):
     character_name = authed_preston.whoami()["CharacterName"]
 
     warning_text = f"""
-    ### Warning
+    ### WARNING
     The following character does not have permissions to see structure info:
     {character_name}. If you to not intend to use this character, remove him with 
     `!revoke {character_name}`. Otherwise, fix your corp permissions in-game and 
@@ -87,7 +87,7 @@ async def send_structure_permission_warning(user, channel, authed_preston):
 
 async def send_channel_warning(user, channel):
     warning_text = f"""
-    ### Warning
+    ### WARNING
     The channel you are using for timer-bot callbacks is a private channel
     which the bot might eventually no longer be able to reach. Please use
     a channel in a server as your callback location
