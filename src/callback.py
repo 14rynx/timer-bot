@@ -71,7 +71,7 @@ async def callback_server(preston: Preston):
 
         for notification in notifications:
             if is_structure_notification(notification):
-                notification = Notification.get_or_create(
+                notification, created = Notification.get_or_create(
                     notification_id=str(notification.get("notification_id")),
                 )
                 notification.sent = True
