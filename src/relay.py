@@ -90,7 +90,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
 
     notif, created = Notification.get_or_create(notification_id=notification_id)
 
-    if created:
+    if not notif.sent:
         try:
             if len(message := structure_notification_message(notification, authed_preston)) > 0:
                 await user_channel.send(message)
@@ -98,7 +98,8 @@ async def send_notification_message(notification, user_channel, authed_preston, 
 
         except Exception as e:
             logger.error(f"Could not send notification to {identifier}: {e}")
-            notif.delete_instance()  # Do not store in DB
+        else:
+            notif.sent = True
 
     else:
         logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent.")
@@ -160,7 +161,6 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
             )
 
         except Exception as e:
-            structure_db.delete_instance()
             logger.error(f"Could not send initial state to {identifier}: {e}")
 
         logger.info(f"Sent initial state to user {identifier}")

@@ -12,7 +12,7 @@ class BaseModel(Model):
 class User(BaseModel):
     user_id = CharField(primary_key=True)
     callback_channel_id = CharField()
-    last_warning = IntegerField()
+    next_warning = IntegerField(default=0)
 
 
 class Character(BaseModel):
@@ -32,7 +32,7 @@ class Challenge(BaseModel):
 
 class Notification(BaseModel):
     notification_id = CharField(primary_key=True)
-    sent = BooleanField()
+    sent = BooleanField(default=False)
 
 
 class Structure(BaseModel):
