@@ -39,7 +39,7 @@ bot = commands.Bot(command_prefix='!', intents=intent)
 
 async def set_callback(ctx):
     user = User.get(user_id=str(ctx.author.id))
-    user.callback_channel_id = str(ctx.channeTIMl.id)
+    user.callback_channel_id = str(ctx.channel.id)
     user.save()
 
     if isinstance(ctx.channel, discord.channel.DMChannel):
