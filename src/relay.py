@@ -4,8 +4,9 @@ import logging
 from discord.ext import tasks
 
 from models import Character, Structure, Notification
+from src.warnings import send_structure_permission_warning
 from structure import build_notification_message, structure_info, fuel_warning, is_structure_notification
-from utils import with_refresh
+from utils import with_refresh, get_channel
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
@@ -51,8 +52,7 @@ async def notification_pings(action_lock, preston, bot):
 
         async for character in schedule_characters(action_lock, notification_phase, NOTIFICATION_PHASES):
 
-            user_channel = bot.get_channel(int(character.user.callback_channel_id))
-            if user_channel is None:
+            if (user_channel := await get_channel(character.user, bot)) is None:
                 logger.warning(f"{character} has no valid channel and can not be notified!")
                 return
 
@@ -64,23 +64,23 @@ async def notification_pings(action_lock, preston, bot):
             )
 
             for notification in reversed(notifications):
-                await send_notification_message(notification, character, user_channel, authed_preston)
+                await send_notification_message(notification, user_channel, authed_preston, identifier=str(character))
 
     except Exception as e:
         logger.error(f"Got an unhandled exception in notification_pings: {e}.", exc_info=True)
 
 
-async def send_notification_message(notification, character, user_channel, authed_preston):
+async def send_notification_message(notification, user_channel, authed_preston, identifier="<no identifier>"):
     """For a notification from ESI take action and inform a user if required"""
     logger.debug("Sending notification message")
 
     # Fail if the notification is an error or None
     if notification is None:
-        logger.error(f"Got a None type notification with {character}.")
+        logger.error(f"Got a None type notification with {identifier}.")
         return
 
     if type(notification) is str:
-        logger.error(f"Got a str notification: {notification} with {character}.")
+        logger.error(f"Got a str notification: {notification} with {identifier}.")
         return
 
     notification_id = notification.get("notification_id")
@@ -95,10 +95,10 @@ async def send_notification_message(notification, character, user_channel, authe
         try:
             if len(message := build_notification_message(notification, authed_preston)) > 0:
                 await user_channel.send(message)
-                logger.info(f"Sent notification to {character}")
+                logger.info(f"Sent notification to {identifier}")
 
         except Exception as e:
-            logger.error(f"Could not send notification to {character}: {e}")
+            logger.error(f"Could not send notification to {identifier}: {e}")
             notif.delete_instance()  # Do not store in DB
 
     else:
@@ -115,9 +115,7 @@ async def status_pings(action_lock, preston, bot):
 
         async for character in schedule_characters(action_lock, status_phase, STATUS_PHASES):
 
-            user_channel = bot.get_channel(int(character.user.callback_channel_id))
-
-            if user_channel is None:
+            if (user_channel := await get_channel(character.user, bot)) is None:
                 logger.warning(f"{character} has no valid channel and can not be notified!")
                 return
 
@@ -135,16 +133,16 @@ async def status_pings(action_lock, preston, bot):
                 if type(structure) is str:
                     # We have some kind of error, but since the library is a bit wired we get one str at a time
                     if structure == "Character does not have required role(s)":
-                        await send_permission_warning(character, user_channel, authed_preston)
+                        await send_structure_permission_warning(character, user_channel, authed_preston)
                     continue
 
-                await send_structure_message(structure, character, user_channel)
+                await send_structure_message(structure, user_channel, identifier=str(character))
 
     except Exception as e:
         logger.error(f"Got an unhandled exception in status_pings: {e}.", exc_info=True)
 
 
-async def send_structure_message(structure, character, user_channel):
+async def send_structure_message(structure, user_channel, identifier="<no identifier>"):
     """For a structure state if there are any changes, take action and inform a user"""
 
     structure_db, created = Structure.get_or_create(
@@ -164,9 +162,9 @@ async def send_structure_message(structure, character, user_channel):
 
         except Exception as e:
             structure_db.delete_instance()
-            logger.error(f"Could not send initial state to {character}: {e}")
+            logger.error(f"Could not send initial state to {identifier}: {e}")
 
-        logger.info(f"Sent initial state to user {character}")
+        logger.info(f"Sent initial state to user {identifier}")
     else:
         # Send message based on state
         if structure_db.last_state != structure.get("state"):
@@ -175,10 +173,10 @@ async def send_structure_message(structure, character, user_channel):
                     f"Structure {structure.get('name')} changed state:\n"
                     f"{structure_info(structure)}"
                 )
-                logger.info(f"Sent state change to user {character}")
+                logger.info(f"Sent state change to user {identifier}")
 
             except Exception as e:
-                logger.error(f"Could not send state change to user {character}: {e}")
+                logger.error(f"Could not send state change to user {identifier}: {e}")
             else:
                 structure_db.last_state = structure.get("state")
 
@@ -192,32 +190,16 @@ async def send_structure_message(structure, character, user_channel):
                         f"Structure {structure.get('name')} has been refueled:\n"
                         f"{structure_info(structure)}"
                     )
-                    logger.info(f"Sent refuel info to {character}.")
+                    logger.info(f"Sent refuel info to {identifier}.")
 
                 else:
                     await user_channel.send(
                         f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is running low on fuel:\n"
                         f"{structure_info(structure)}"
                     )
-                    logger.info(f"Sent fuel warning to {character}")
+                    logger.info(f"Sent fuel warning to {identifier}")
 
             except Exception as e:
-                logger.error(f"Could not send fuel warning to {character}: {e}")
+                logger.error(f"Could not send fuel warning to {identifier}: {e}")
             else:
                 structure_db.last_fuel_warning = current_fuel_warning
-
-
-async def send_permission_warning(character, user_channel, authed_preston):
-    character_name = authed_preston.whoami()["CharacterName"]
-
-    try:
-        await user_channel.send(
-            "### Warning\n "
-            "The following character does not have permissions to see structure info:\n"
-            f"{character_name}\n If you to not intend to use this character, "
-            f"remove him with `!revoke {character_name}`\n"
-            "otherwise, fix your corp permissions and check them with `!info`"
-        )
-        logger.info(f"Sent permission warning to {character}")
-    except Exception as e:
-        logger.error(f"Could not send permission warning to {character}: {e}")

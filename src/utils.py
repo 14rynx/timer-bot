@@ -1,4 +1,7 @@
+import discord
 from preston import Preston
+
+from src.warnings import send_channel_warning
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -37,3 +40,10 @@ def with_refresh(preston_instance: Preston, refresh_token: str) -> Preston:
     new_kwargs["access_token"] = None
     return Preston(**new_kwargs)
 
+
+async def get_channel(user, bot):
+    """Get a discord channel for a specific user."""
+    channel = bot.get_channel(int(user.callback_channel_id))
+    if channel is not None and isinstance(channel, discord.channel.DMChannel):
+        await send_channel_warning(user, channel)
+    return channel

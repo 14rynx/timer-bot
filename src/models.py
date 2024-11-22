@@ -12,6 +12,7 @@ class BaseModel(Model):
 class User(BaseModel):
     user_id = CharField(primary_key=True)
     callback_channel_id = CharField()
+    last_warning = IntegerField()
 
 
 class Character(BaseModel):
