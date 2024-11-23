@@ -238,7 +238,7 @@ async def action(ctx, *action_text):
     for user in User.select():
         if user.characters.exists():
             channel = await get_channel(user, bot)
-            channel.send(action_text_concatenated)
+            await channel.send(action_text_concatenated)
             user_count += 1
 
     await ctx.send(f"Sent action text to {user_count} users. The message looks like the following:")
