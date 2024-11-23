@@ -6,9 +6,7 @@ services:
     env_file:
       .env
     volumes:
-      - type: bind
-        source: ./bot.sqlite
-        target: /data/bot.sqlite
+      - ./data:/data/
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
