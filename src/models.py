@@ -14,6 +14,8 @@ class User(BaseModel):
     callback_channel_id = CharField()
     next_warning = IntegerField(default=0)
 
+    def __repr__(self):
+        return f"User {self.user.user_id}"
 
 class Character(BaseModel):
     character_id = CharField(primary_key=True)
