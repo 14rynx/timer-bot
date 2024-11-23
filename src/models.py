@@ -1,7 +1,7 @@
 from peewee import *
 
 # Initialize the database
-db = SqliteDatabase('data/bot.db')
+db = SqliteDatabase('data/bot.sqlite')
 
 
 class BaseModel(Model):
