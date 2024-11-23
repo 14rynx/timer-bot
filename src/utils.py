@@ -100,7 +100,7 @@ async def send_channel_warning(user, channel):
 
 async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
-    channel = bot.fetch_channel(int(user.callback_channel_id))
+    channel = await bot.fetch_channel(int(user.callback_channel_id))
     if channel is not None and isinstance(channel, discord.channel.DMChannel):
         await send_channel_warning(user, channel)
     return channel
