@@ -1,3 +1,5 @@
+import shelve
+
 from peewee import *
 
 # Initialize the database
@@ -44,3 +46,7 @@ class Structure(BaseModel):
 def initialize_database():
     with db:
         db.create_tables([User, Character, Challenge, Notification, Structure])
+
+    with shelve.open('../data/user_channels', writeback=False) as user_channels:
+        for user_key, callback_channel_id in user_channels.items():
+            user, created = User.get_or_create(user_id=int(user_key), callback_channel_id=int(callback_channel_id))
