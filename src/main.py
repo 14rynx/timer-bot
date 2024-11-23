@@ -11,9 +11,8 @@ from preston import Preston
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
-from src.utils import get_channel
 from structure import structure_info
-from utils import lookup, with_refresh
+from utils import lookup, with_refresh, get_channel
 
 # Configure the logger
 logger = logging.getLogger('discord.main')
