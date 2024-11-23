@@ -11,6 +11,7 @@ from preston import Preston
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
+from src.utils import get_channel
 from structure import structure_info
 from utils import lookup, with_refresh
 
@@ -223,6 +224,26 @@ async def info(ctx):
         output += "\n".join(characters_without_permissions)
 
     await ctx.send(output)
+
+
+@bot.command()
+@command_error_handler
+async def action(ctx, action_text):
+    """Admin only: send a message to all users concerning the bot."""
+    if int(ctx.author.id) != int(os.environ["ADMIN"]):
+        await ctx.send("You are not authorized to perform this action.")
+
+    action_text_concatenated = " ".join(action_text)
+
+    user_count = 0
+    for user in User.select():
+        if user.characters.exists():
+            channel = await get_channel(user, bot)
+            channel.send(action_text_concatenated)
+            user_count += 1
+
+    await ctx.send(f"Sent action text to {user_count} users. The message looks like the following:")
+    await ctx.send(action_text_concatenated)
 
 
 if __name__ == "__main__":
