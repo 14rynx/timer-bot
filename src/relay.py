@@ -16,7 +16,7 @@ STATUS_PHASES = 12
 
 # Configure the logger
 logger = logging.getLogger('discord.relay')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.WARNING)
 
 # Configure iteration variables
 notification_phase = -1
@@ -52,7 +52,7 @@ async def notification_pings(action_lock, preston, bot):
         async for character in schedule_characters(action_lock, notification_phase, NOTIFICATION_PHASES):
 
             if (user_channel := await get_channel(character.user, bot)) is None:
-                logger.warning(f"{character} has no valid channel and can not be notified!")
+                logger.info(f"{character} has no valid channel and can not be notified!")
                 return
 
             authed_preston = with_refresh(preston, character.token)
@@ -75,11 +75,11 @@ async def send_notification_message(notification, user_channel, authed_preston, 
 
     # Fail if the notification is an error or None
     if notification is None:
-        logger.error(f"Got a None type notification with {identifier}.")
+        logger.warning(f"Got a None type notification with {identifier}.")
         return
 
     if type(notification) is str:
-        logger.error(f"Got a str notification: {notification} with {identifier}.")
+        logger.warning(f"Got a str notification: {notification} with {identifier}.")
         return
 
     notification_id = notification.get("notification_id")
@@ -94,10 +94,10 @@ async def send_notification_message(notification, user_channel, authed_preston, 
         try:
             if len(message := structure_notification_message(notification, authed_preston)) > 0:
                 await user_channel.send(message)
-                logger.info(f"Sent notification to {identifier}")
+                logger.debug(f"Sent notification to {identifier}")
 
         except Exception as e:
-            logger.error(f"Could not send notification to {identifier}: {e}")
+            logger.info(f"Could not send notification to {identifier}: {e}")
         else:
             notif.sent = True
 
@@ -116,7 +116,7 @@ async def status_pings(action_lock, preston, bot):
         async for character in schedule_characters(action_lock, status_phase, STATUS_PHASES):
 
             if (user_channel := await get_channel(character.user, bot)) is None:
-                logger.warning(f"{character} has no valid channel and can not be notified!")
+                logger.info(f"{character} has no valid channel and can not be notified!")
                 return
 
             authed_preston = with_refresh(preston, character.token)
@@ -159,11 +159,10 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                 f"Structure {structure.get('name')} newly found in state:\n"
                 f"{structure_info(structure)}"
             )
-
+            logger.debug(f"Sent initial state to user {identifier}")
         except Exception as e:
-            logger.error(f"Could not send initial state to {identifier}: {e}")
+            logger.info(f"Could not send initial state to {identifier}: {e}")
 
-        logger.info(f"Sent initial state to user {identifier}")
     else:
         # Send message based on state
         if structure_db.last_state != structure.get("state"):
@@ -172,10 +171,9 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                     f"Structure {structure.get('name')} changed state:\n"
                     f"{structure_info(structure)}"
                 )
-                logger.info(f"Sent state change to user {identifier}")
-
+                logger.debug(f"Sent state change to user {identifier}")
             except Exception as e:
-                logger.error(f"Could not send state change to user {identifier}: {e}")
+                logger.info(f"Could not send state change to user {identifier}: {e}")
             else:
                 structure_db.last_state = structure.get("state")
 
@@ -189,16 +187,16 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                         f"Structure {structure.get('name')} has been refueled:\n"
                         f"{structure_info(structure)}"
                     )
-                    logger.info(f"Sent refuel info to {identifier}.")
+                    logger.debug(f"Sent refuel info to {identifier}.")
 
                 else:
                     await user_channel.send(
                         f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is running low on fuel:\n"
                         f"{structure_info(structure)}"
                     )
-                    logger.info(f"Sent fuel warning to {identifier}")
+                    logger.debug(f"Sent fuel warning to {identifier}")
 
             except Exception as e:
-                logger.error(f"Could not send fuel warning to {identifier}: {e}")
+                logger.info(f"Could not send fuel warning to {identifier}: {e}")
             else:
                 structure_db.last_fuel_warning = current_fuel_warning

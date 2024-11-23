@@ -1,10 +1,6 @@
-import logging
 from datetime import datetime, timedelta, timezone
 
 from preston import Preston
-
-logger = logging.getLogger('discord.structure_info')
-logger.setLevel(logging.INFO)
 
 # Mapping of EVE states to human-readable states
 state_mapping = {

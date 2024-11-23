@@ -6,7 +6,7 @@ from preston import Preston
 
 # Configure the logger
 logger = logging.getLogger('discord.utils')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.WARNING)
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -52,9 +52,9 @@ async def send_warning(user, channel, warning_text, log_text=""):
     if user.next_warning < datetime.now(tz=timezone.utc).timestamp():
         try:
             await channel.send(warning_text)
-            logger.info(f"Sent warning {log_text}.")
+            logger.debug(f"Sent warning {log_text}.")
         except Exception as e:
-            logger.warning(f"Could not send warning {log_text}: {e}")
+            logger.info(f"Could not send warning {log_text}: {e}")
         else:
             user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
             user.save()
