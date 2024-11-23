@@ -227,7 +227,7 @@ async def info(ctx):
 
 @bot.command()
 @command_error_handler
-async def action(ctx, action_text):
+async def action(ctx, *action_text):
     """Admin only: send a message to all users concerning the bot."""
     if int(ctx.author.id) != int(os.environ["ADMIN"]):
         await ctx.send("You are not authorized to perform this action.")
