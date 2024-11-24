@@ -177,6 +177,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                 logger.info(f"Could not send state change to user {identifier}: {e}")
             else:
                 structure_db.last_state = structure.get("state")
+                structure_db.save()
 
         current_fuel_warning = fuel_warning(structure)
 
@@ -201,3 +202,4 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                 logger.info(f"Could not send fuel warning to {identifier}: {e}")
             else:
                 structure_db.last_fuel_warning = current_fuel_warning
+                structure_db.save()
