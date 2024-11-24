@@ -100,6 +100,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
             logger.info(f"Could not send notification to {identifier}: {e}")
         else:
             notif.sent = True
+            notif.save()
 
     else:
         logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent.")
