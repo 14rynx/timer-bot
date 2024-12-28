@@ -45,7 +45,7 @@ def structure_info(structure: dict) -> str:
             structure_message += f"**Timer:** Unknown, please check manually!\n"
 
     fuel_expires = to_datetime(structure.get('fuel_expires'))
-    if fuel_expires:
+    if fuel_expires is not None:
         structure_message += f"**Fuel:** <t:{int(fuel_expires.timestamp())}> (<t:{int(fuel_expires.timestamp())}:R>) ({fuel_expires} ET)\n"
     else:
         # fuel_expires is None e.g. structure is anchoring
@@ -57,7 +57,7 @@ def structure_info(structure: dict) -> str:
 def fuel_warning(structure: dict) -> int or None:
     """Returns the next fuel warning level a structure is currently on"""
     fuel_expires = to_datetime(structure.get('fuel_expires'))
-    if fuel_expires:
+    if fuel_expires is not None:
         time_left = fuel_expires - datetime.now(tz=timezone.utc)
 
         for fuel_warning_days in fuel_warnings:
@@ -88,7 +88,7 @@ def structure_notification_message(notification: dict, authed_preston: Preston) 
         case "StructureUnderAttack":
             # Parse attacker info
             character_id = get_attacker_name(notification)
-            if character_id:
+            if character_id is not None:
                 character_name = authed_preston.get_op(
                     'get_characters_character_id',
                     character_id=character_id
