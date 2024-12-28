@@ -86,7 +86,17 @@ def structure_notification_message(notification: dict, authed_preston: Preston) 
         case "StructureUnanchoring":
             return f"@everyone Structure {structure_name} is now unanchoring!\n"
         case "StructureUnderAttack":
-            return f"@everyone Structure {structure_name} is under attack!\n"
+            # Parse attacker info
+            character_id = get_attacker_name(notification)
+            if character_id:
+                character_name = authed_preston.get_op(
+                    'get_characters_character_id',
+                    character_id=character_id
+                ).get("name", "Unknown")
+                attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
+            else:
+                attribution = ""
+            return f"@everyone Structure {structure_name} is under attack{attribution}!\n"
         case "StructureWentHighPower":
             return f"@everyone Structure {structure_name} is now high power!\n"
         case "StructureWentLowPower":
@@ -105,6 +115,13 @@ def get_structure_id(notification: dict) -> int:
             structure_id = int(line.split(" ")[2])
     return structure_id
 
+def get_attacker_name(notification: dict) -> int:
+    """returns a character_id from the notification or none if no character_id can be found"""
+    character_id = None
+    for line in notification.get("text").split("\n"):
+        if "charID:" in line:
+            character_id = int(line.split(" ")[1])
+    return character_id
 
 def is_structure_notification(notification: dict) -> bool:
     """returns true if a notification is about a structure"""
