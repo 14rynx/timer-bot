@@ -1,14 +1,25 @@
 # Timer-Bot
 
-A discord bot that should notify you when your structures have been attacked, or are running low on fuel.
-If you just want to know what is going on, without having to run a full Alliance Auth or SEAT just for this one feature.
+A discord bot that should notify you when your [Eve-Online](https://www.eveonline.com) structures have been attacked, or are running low on fuel.
+If you just want to know what is going on, without having to run a full [Alliance Auth](https://apps.allianceauth.org/) or [SeAT](https://github.com/eveseat/seat) just for this one feature.
 
-## Inviting the bot
+![Info](https://friendly-splash.space/Tools/timer-notifications-images/info-command.png)
 
+## Using the Public Instance of the Bot
+
+### Written Guide
 If you want to set up this bot quickly, you can use the following [invite link](https://discord.com/oauth2/authorize?client_id=1180817944813518879&permissions=3072&scope=bot).
-For any things regarding maintenance I will try to notify people on [this discord sever](https://discord.com/invite/fT3eShrg5g).
 
-## Setup on Own Server
+Type `!help` to see all commands and `!auth` to authorize a character.
+This character needs to have the `Station Manager` role to allow API access to his corporation's structures.
+(You can find it in game Corporation -> Administration -> Role Management -> Station Services)
+For any things regarding maintenance I will try to notify people on my community [discord sever](https://discord.com/invite/fT3eShrg5g).
+
+### Video Guide
+
+[![Video Guide](https://img.youtube.com/vi/s6n5UfaSpWg/0.jpg)](https://www.youtube.com/watch?v=s6n5UfaSpWg)
+
+## Setting up an Instance on your own Server
 
 Since we need to connect to both ESI and discord, there is sadly still some things to do.
 TLDR: Create an env file and fill it in with the CCP and Discord info, then run with docker compose.
