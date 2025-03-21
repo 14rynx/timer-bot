@@ -245,14 +245,13 @@ async def action(ctx, *action_text):
 
     user_count = 0
     for user in User.select():
-        if user.characters.exists():
-            try:
-                channel = await get_channel(user, bot)
-                await channel.send(action_text_concatenated)
-            except discord.errors.Forbidden:
-                await ctx.send(f"Could not reach user {user}.")
-                logger.info(f"Could not reach user {user}.")
-            user_count += 1
+        try:
+            channel = await get_channel(user, bot)
+            await channel.send(action_text_concatenated)
+        except discord.errors.Forbidden:
+            await ctx.send(f"Could not reach user {user}.")
+            logger.info(f"Could not reach user {user}.")
+        user_count += 1
 
     await ctx.send(f"Sent action text to {user_count} users. The message looks like the following:")
     await ctx.send(action_text_concatenated)
