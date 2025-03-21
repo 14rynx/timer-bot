@@ -12,7 +12,7 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
-from utils import lookup, with_refresh, get_channel, send_esi_permission_warning
+from utils import lookup, with_refresh, get_channel, send_esi_permission_warning, send_large_message
 
 # Configure the logger
 logger = logging.getLogger('discord.main')
@@ -143,7 +143,10 @@ async def characters(ctx):
 
     if character_names:
         character_names_body = "\n".join(character_names)
-        await ctx.send(f"You have the following character(s) authenticated:\n{character_names_body}")
+        await send_large_message(
+            ctx,
+            f"You have the following character(s) authenticated:\n{character_names_body}"
+        )
     else:
         await ctx.send("You have no authorized characters!")
 
@@ -231,7 +234,7 @@ async def info(ctx):
         output += "The following characters do not have permissions to see structure info:\n"
         output += "\n".join(characters_without_permissions)
 
-    await ctx.send(output)
+    await send_large_message(ctx, output)
 
 
 @bot.command()

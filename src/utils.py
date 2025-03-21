@@ -67,6 +67,7 @@ async def send_warning(user, channel, warning_text, log_text=""):
             user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
             user.save()
 
+
 async def send_esi_permission_warning(user, channel, character_id, preston):
     character_name = preston.get_op(
         'get_characters_character_id',
@@ -81,6 +82,7 @@ async def send_esi_permission_warning(user, channel, character_id, preston):
     """
 
     await send_warning(user, channel, warning_text, log_text="channel")
+
 
 async def send_notification_permission_warning(user, channel, authed_preston):
     character_name = authed_preston.whoami()["CharacterName"]
@@ -126,3 +128,46 @@ async def get_channel(user, bot):
     if channel is not None and isinstance(channel, discord.channel.DMChannel):
         await send_channel_warning(user, channel)
     return channel
+
+
+async def send_large_message(ctx, message, max_chars=1994, delimiter='\n', **kwargs):
+    open_code_block = False
+
+    while len(message) > 0:
+        # If the remaining message fits within max_chars, send it as is
+        if len(message) <= max_chars:
+            # Prepend message if the previous one ended with an open code-block
+            if open_code_block:
+                message = f"```{message}"
+
+            await ctx.send(message, **kwargs)
+            break
+
+        # Find the last newline within the max_chars limit
+        last_newline_index = message.rfind(delimiter, 0, max_chars)
+
+        # If no newline found within limit, cut at max_chars
+        if last_newline_index == -1:
+            part = message[:max_chars]
+            message = message[max_chars:]
+        else:
+            part = message[:last_newline_index]
+            message = message[last_newline_index + 1:]
+
+        # Count the number of backticks to see if the split ends in a codeblock
+        code_block_count = part.count("```")
+
+        # Prepend message if the previous one ended with an open code-block
+        if open_code_block:
+            part = f"```{part}"
+
+        # Toggle if we are in a code-block
+        if code_block_count % 2 == 1:
+            open_code_block = not open_code_block
+
+        # Post-pend message if we are still in a code-block
+        if open_code_block:
+            part = f"{part}```"
+
+        # Send the current part
+        await ctx.send(part, **kwargs)
