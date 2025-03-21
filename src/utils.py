@@ -48,7 +48,7 @@ def with_refresh(preston_instance: Preston, character: Character) -> Preston:
         new_kwargs["access_token"] = None
         new = Preston(**new_kwargs)
     except KeyError:
-        logger.error(f"Could not authenticate with {character}.")
+        logger.info(f"Could not authenticate with {character}.")
         raise ValueError(f"Could not authenticate with {character}.")
 
     return new
