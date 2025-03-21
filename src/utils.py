@@ -4,6 +4,8 @@ from datetime import datetime, timezone, timedelta
 import discord
 from preston import Preston
 
+from models import Character
+
 # Configure the logger
 logger = logging.getLogger('discord.utils')
 logger.setLevel(logging.WARNING)
@@ -38,12 +40,18 @@ async def lookup(preston: Preston, string: str, return_type: str) -> int:
             raise ValueError("Could not parse that character!")
 
 
-def with_refresh(preston_instance: Preston, refresh_token: str) -> Preston:
+def with_refresh(preston_instance: Preston, character: Character) -> Preston:
     """Returns a similar Preston instance with the specified refresh token."""
-    new_kwargs = dict(preston_instance._kwargs)
-    new_kwargs["refresh_token"] = refresh_token
-    new_kwargs["access_token"] = None
-    return Preston(**new_kwargs)
+    try:
+        new_kwargs = dict(preston_instance._kwargs)
+        new_kwargs["refresh_token"] = character.token
+        new_kwargs["access_token"] = None
+        new = Preston(**new_kwargs)
+    except KeyError:
+        logger.error(f"Could not authenticate with {character}.")
+        raise ValueError(f"Could not authenticate with {character}.")
+
+    return new
 
 
 async def send_warning(user, channel, warning_text, log_text=""):
@@ -59,6 +67,20 @@ async def send_warning(user, channel, warning_text, log_text=""):
             user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
             user.save()
 
+async def send_esi_permission_warning(user, channel, character_id, preston):
+    character_name = preston.get_op(
+        'get_characters_character_id',
+        character_id=character_id
+    ).get("name")
+
+    warning_text = f"""
+    ### WARNING
+    The following character does not have permissions to fetch data from ESI:
+    {character_name}. If you to not intend to use this character, remove him with 
+    `!revoke {character_name}`. Otherwise re-authenticate with `!auth`.
+    """
+
+    await send_warning(user, channel, warning_text, log_text="channel")
 
 async def send_notification_permission_warning(user, channel, authed_preston):
     character_name = authed_preston.whoami()["CharacterName"]

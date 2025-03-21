@@ -5,7 +5,7 @@ from discord.ext import tasks
 
 from models import Character, Structure, Notification
 from structure import structure_notification_message, structure_info, fuel_warning, is_structure_notification
-from utils import with_refresh, get_channel, send_structure_permission_warning
+from utils import with_refresh, get_channel, send_structure_permission_warning, send_esi_permission_warning
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
@@ -55,7 +55,11 @@ async def notification_pings(action_lock, preston, bot):
                 logger.info(f"{character} has no valid channel and can not be notified!")
                 return
 
-            authed_preston = with_refresh(preston, character.token)
+            try:
+                authed_preston = with_refresh(preston, character)
+            except ValueError:
+                await send_esi_permission_warning(character.user, user_channel, character.character_id, preston)
+                continue
 
             notifications = authed_preston.get_op(
                 "get_characters_character_id_notifications",
@@ -120,7 +124,11 @@ async def status_pings(action_lock, preston, bot):
                 logger.info(f"{character} has no valid channel and can not be notified!")
                 return
 
-            authed_preston = with_refresh(preston, character.token)
+            try:
+                authed_preston = with_refresh(preston, character)
+            except ValueError:
+                await send_esi_permission_warning(character.user, user_channel, character.character_id, preston)
+                continue
 
             structures = authed_preston.get_op(
                 "get_corporations_corporation_id_structures",

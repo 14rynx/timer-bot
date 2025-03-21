@@ -12,7 +12,7 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
-from utils import lookup, with_refresh, get_channel
+from utils import lookup, with_refresh, get_channel, send_esi_permission_warning
 
 # Configure the logger
 logger = logging.getLogger('discord.main')
@@ -132,7 +132,12 @@ async def characters(ctx):
     user = User.get_or_none(User.user_id == str(ctx.author.id))
     if user:
         for character in user.characters:
-            authed_preston = with_refresh(base_preston, character.token)
+            try:
+                authed_preston = with_refresh(base_preston, character)
+            except ValueError:
+                await send_esi_permission_warning(user, ctx, character.character_id, base_preston)
+                continue
+
             character_name = authed_preston.whoami()['CharacterName']
             character_names.append(f"- {character_name}")
 
@@ -190,7 +195,11 @@ async def info(ctx):
     user = User.get_or_none(User.user_id == str(ctx.author.id))
     if user:
         for character in user.characters:
-            authed_preston = with_refresh(base_preston, character.token)
+            try:
+                authed_preston = with_refresh(base_preston, character)
+            except ValueError:
+                await send_esi_permission_warning(user, ctx, character.character_id, base_preston)
+                continue
 
             character_name = authed_preston.whoami()['CharacterName']
 
