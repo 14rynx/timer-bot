@@ -1,5 +1,6 @@
 import collections
 import logging
+from json import JSONDecodeError
 
 from discord.ext import tasks
 
@@ -44,7 +45,6 @@ async def schedule_characters(action_lock, phase, total_phases):
 async def notification_pings(action_lock, preston, bot):
     """Periodically fetch notifications from ESI"""
     try:
-        # Increment phase
         global notification_phase
         notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
         logger.debug(f"Running notification_pings in phase {notification_phase}.")
@@ -59,14 +59,31 @@ async def notification_pings(action_lock, preston, bot):
                 authed_preston = with_refresh(preston, character)
             except ValueError:
                 await send_esi_permission_warning(character.user, user_channel, character.character_id, preston)
+                logger.info(f"{character} has no ESI permissions and can not be notified!")
                 continue
 
-            notifications = authed_preston.get_op(
-                "get_characters_character_id_notifications",
-                character_id=character.character_id,
-            )
+            try:
+                notifications = authed_preston.get_op(
+                    "get_characters_character_id_notifications",
+                    character_id=character.character_id,
+                )
+            except (JSONDecodeError, TimeoutError):
+                logger.warning(f"Didn't get reasonable notifications for {character}, skipping...")
+                continue
+            except Exception as e:
+                logger.error(f"Got an unfamiliar exceptions when fetching notifications for {character}: {e}.", exc_info=True)
+                continue
 
             for notification in reversed(notifications):
+                # Fail if the notification is an error or None
+                if notification is None:
+                    logger.warning(f"Got a None type notification with {character}.")
+                    return
+
+                if type(notification) is str:
+                    logger.warning(f"Got a str notification: {notification} with {character}.")
+                    return
+
                 await send_notification_message(notification, user_channel, authed_preston, identifier=str(character))
 
     except Exception as e:
@@ -76,15 +93,6 @@ async def notification_pings(action_lock, preston, bot):
 async def send_notification_message(notification, user_channel, authed_preston, identifier="<no identifier>"):
     """For a notification from ESI take action and inform a user if required"""
     logger.debug("Sending notification message")
-
-    # Fail if the notification is an error or None
-    if notification is None:
-        logger.warning(f"Got a None type notification with {identifier}.")
-        return
-
-    if type(notification) is str:
-        logger.warning(f"Got a str notification: {notification} with {identifier}.")
-        return
 
     notification_id = notification.get("notification_id")
 
@@ -130,19 +138,30 @@ async def status_pings(action_lock, preston, bot):
                 await send_esi_permission_warning(character.user, user_channel, character.character_id, preston)
                 continue
 
-            structures = authed_preston.get_op(
-                "get_corporations_corporation_id_structures",
-                corporation_id=character.corporation_id,
-            )
+            try:
+                structures = authed_preston.get_op(
+                    "get_corporations_corporation_id_structures",
+                    corporation_id=character.corporation_id,
+                )
+            except (JSONDecodeError, TimeoutError):
+                logger.warning(f"Didn't get reasonable structure response for {character}, skipping...")
+                continue
+            except Exception as e:
+                logger.error(f"Got an unfamiliar exceptions when fetching structures for {character}: {e}.", exc_info=True)
+                continue
 
             for structure in structures:
+                # Fail if the notification is an error or None
                 if structure is None:
+                    logger.warning(f"Got a None type notification with {character}.")
                     continue
 
                 if type(structure) is str:
                     # We have some kind of error, but since the library is a bit wired we get one str at a time
                     if structure == "Character does not have required role(s)":
                         await send_structure_permission_warning(character, user_channel, authed_preston)
+                    else:
+                        logger.warning(f"Got a str structure: {structure} with {character}.")
                     continue
 
                 await send_structure_message(structure, user_channel, identifier=str(character))
