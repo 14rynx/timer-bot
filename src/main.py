@@ -30,6 +30,7 @@ base_preston = Preston(
     client_secret=os.environ["CCP_SECRET_KEY"],
     callback_url=os.environ["CCP_REDIRECT_URI"],
     scope="esi-corporations.read_structures.v1 esi-characters.read_notifications.v1 esi-universe.read_structures.v1",
+    timeout=10,
 )
 
 # Setup Discord
