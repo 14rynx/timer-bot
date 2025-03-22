@@ -12,7 +12,8 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
-from utils import lookup, with_refresh, get_channel, send_esi_permission_warning, send_large_message
+from user_warnings import send_esi_permission_warning
+from utils import lookup, with_refresh, get_channel, send_large_message
 
 # Configure the logger
 logger = logging.getLogger('discord.main')
@@ -135,7 +136,7 @@ async def characters(ctx):
             try:
                 authed_preston = with_refresh(base_preston, character)
             except ValueError:
-                await send_esi_permission_warning(user, ctx, character.character_id, base_preston)
+                await send_esi_permission_warning(character, ctx, base_preston)
                 continue
 
             character_name = authed_preston.whoami()['CharacterName']

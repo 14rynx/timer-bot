@@ -58,8 +58,9 @@ async def callback_server(preston: Preston):
 
         character, created = Character.get_or_create(
             character_id=character_id, user=user,
-            defaults={"token": authed_preston.refresh_token, "corporation_id":corporation_id}
+            defaults={"token": authed_preston.refresh_token, "corporation_id": corporation_id}
         )
+        character.corporation_id = corporation_id
         character.token = authed_preston.refresh_token
         character.save()
 

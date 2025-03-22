@@ -54,7 +54,7 @@ def structure_info(structure: dict) -> str:
     return structure_message
 
 
-def fuel_warning(structure: dict) -> int or None:
+def fuel_message(structure: dict) -> int or None:
     """Returns the next fuel warning level a structure is currently on"""
     fuel_expires = to_datetime(structure.get('fuel_expires'))
     if fuel_expires is not None:
@@ -115,6 +115,7 @@ def get_structure_id(notification: dict) -> int:
             structure_id = int(line.split(" ")[2])
     return structure_id
 
+
 def get_attacker_name(notification: dict) -> int:
     """returns a character_id from the notification or none if no character_id can be found"""
     character_id = None
@@ -122,6 +123,7 @@ def get_attacker_name(notification: dict) -> int:
         if "charID:" in line:
             character_id = int(line.split(" ")[1])
     return character_id
+
 
 def is_structure_notification(notification: dict) -> bool:
     """returns true if a notification is about a structure"""

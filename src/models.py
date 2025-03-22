@@ -20,6 +20,7 @@ class User(BaseModel):
     def __str__(self):
         return f"User {self.user_id}"
 
+
 class Character(BaseModel):
     character_id = CharField(primary_key=True)
     corporation_id = CharField()
@@ -31,6 +32,7 @@ class Character(BaseModel):
 
     def __str__(self):
         return f"Character {self.character_id} by User {self.user.user_id}"
+
 
 class Challenge(BaseModel):
     user = ForeignKeyField(User, backref='challenges')
