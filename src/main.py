@@ -12,7 +12,8 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
-from user_warnings import send_esi_permission_warning
+from user_warnings import send_esi_permission_warning, send_structure_permission_warning, send_structure_corp_warning, \
+    send_structure_other_warning
 from utils import lookup, with_refresh, get_channel, send_large_message
 
 # Configure the logger
@@ -194,7 +195,6 @@ async def info(ctx):
     """Returns the status of all structures linked."""
 
     structures_info = []
-    characters_without_permissions = []
 
     user = User.get_or_none(User.user_id == str(ctx.author.id))
     if user:
@@ -213,16 +213,30 @@ async def info(ctx):
             ).get("corporation_id")
 
             # Get structure data and build info for this structure
-            structures = authed_preston.get_op(
+            structure_response = authed_preston.get_op(
                 'get_corporations_corporation_id_structures',
                 corporation_id=corporation_id
             )
 
-            for structure in structures:
-                if type(structure) is str:
-                    characters_without_permissions.append(f"- {character_name}")
+            if type(structure_response) is dict:
+                if "error" in structure_response:
+                    match structure_response["error"]:
+                        case "Character does not have required role(s)":
+                            await send_structure_permission_warning(character, ctx, authed_preston, send_now=True)
+                        case "Character is not in the corporation":
+                            await send_structure_corp_warning(character, ctx, authed_preston, send_now=True)
+                        case _:
+                            await send_structure_other_warning(
+                                character, ctx, authed_preston,
+                                structure_response["error"],
+                                send_now=True
+                            )
                 else:
-                    structures_info.append(structure_info(structure))
+                    logger.error(f"Got an unfamiliar response for {character}: {structure_response}.", exc_info=True)
+                continue
+
+            for structure in structure_response:
+                structures_info.append(structure_info(structure))
 
     # Build message with all structure info
     output = "\n"
@@ -230,10 +244,6 @@ async def info(ctx):
         output += "\n\n".join(structures_info)
     else:
         output += "No structures found!\n"
-    if characters_without_permissions:
-        output += "### WARNING\n"
-        output += "The following characters do not have permissions to see structure info:\n"
-        output += "\n".join(characters_without_permissions)
 
     await send_large_message(ctx, output)
 
