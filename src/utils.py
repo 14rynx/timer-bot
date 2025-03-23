@@ -1,5 +1,8 @@
+from json import JSONDecodeError
+
 import discord
 from preston import Preston
+from requests import ReadTimeout
 
 from models import Character
 from user_warnings import send_channel_warning
@@ -41,7 +44,7 @@ def with_refresh(preston_instance: Preston, character: Character) -> Preston:
         new_kwargs["refresh_token"] = character.token
         new_kwargs["access_token"] = None
         new = Preston(**new_kwargs)
-    except KeyError:
+    except (KeyError, JSONDecodeError, TimeoutError, ReadTimeout):
         raise ValueError(f"Could not authenticate with {character}.")
 
     return new
