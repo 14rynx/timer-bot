@@ -8,9 +8,7 @@ from models import User, Character, Challenge, Notification
 from structure import is_structure_notification
 
 # Configure the logger
-logger = logging.getLogger('callback')
-logger.setLevel(logging.INFO)
-
+logger = logging.getLogger('timer.callback')
 
 @tasks.loop()
 async def callback_server(preston: Preston):
@@ -78,7 +76,7 @@ async def callback_server(preston: Preston):
                 notification.sent = True
                 notification.save()
 
-        logger.info(f"Added character {character_id}")
+        logger.info(f"Added character {character}.")
         if created:
             return web.Response(text=f"Successfully authenticated {character_name}!")
         else:

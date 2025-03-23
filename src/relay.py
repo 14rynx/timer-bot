@@ -3,6 +3,7 @@ import logging
 from json import JSONDecodeError
 
 from discord.ext import tasks
+from requests import ReadTimeout
 
 from models import Character, Structure, Notification
 from structure import structure_notification_message, structure_info, fuel_message, is_structure_notification
@@ -18,8 +19,7 @@ STATUS_CACHE_TIME = 3600
 STATUS_PHASES = 12
 
 # Configure the logger
-logger = logging.getLogger('discord.relay')
-logger.setLevel(logging.WARNING)
+logger = logging.getLogger('timer.relay')
 
 # Configure iteration variables
 notification_phase = -1
@@ -54,14 +54,14 @@ async def notification_pings(action_lock, preston, bot):
         async for character in schedule_characters(action_lock, notification_phase, NOTIFICATION_PHASES):
 
             if (user_channel := await get_channel(character.user, bot)) is None:
-                logger.info(f"{character} has no valid channel and can not be notified!")
+                logger.info(f"{character} has no valid channel and can not be notified, skipping...")
                 return
 
             try:
                 authed_preston = with_refresh(preston, character)
             except ValueError:
                 await send_esi_permission_warning(character, user_channel, preston)
-                logger.info(f"{character} has no ESI permissions and can not be notified!")
+                logger.warning(f"{character} has no ESI permissions and can not be notified!")
                 continue
 
             try:
@@ -69,8 +69,8 @@ async def notification_pings(action_lock, preston, bot):
                     "get_characters_character_id_notifications",
                     character_id=character.character_id,
                 )
-            except (JSONDecodeError, TimeoutError):
-                logger.warning(f"Didn't get reasonable notifications for {character}, skipping...")
+            except (JSONDecodeError, TimeoutError, ReadTimeout):
+                logger.warning(f"Got a network error with {character}, skipping...")
                 continue
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching notifications for {character}: {e}.",
@@ -111,7 +111,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
                 logger.debug(f"Sent notification to {identifier}")
 
         except Exception as e:
-            logger.info(f"Could not send notification to {identifier}: {e}")
+            logger.warning(f"Could not send notification to {identifier}: {e}")
         else:
             notif.sent = True
             notif.save()
@@ -145,8 +145,8 @@ async def status_pings(action_lock, preston, bot):
                     "get_corporations_corporation_id_structures",
                     corporation_id=character.corporation_id,
                 )
-            except (JSONDecodeError, TimeoutError):
-                logger.warning(f"Didn't get reasonable structure response for {character}, skipping...")
+            except (JSONDecodeError, TimeoutError, ReadTimeout):
+                logger.warning(f"Got a network error with {character}, skipping...")
                 continue
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching structures for {character}: {e}.",
@@ -197,7 +197,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
             )
             logger.debug(f"Sent initial state to user {identifier}")
         except Exception as e:
-            logger.info(f"Could not send initial state to {identifier}: {e}")
+            logger.warning(f"Could not send initial state to {identifier}: {e}")
 
     else:
         # Send message based on state
@@ -209,7 +209,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                 )
                 logger.debug(f"Sent state change to user {identifier}")
             except Exception as e:
-                logger.info(f"Could not send state change to user {identifier}: {e}")
+                logger.warning(f"Could not send state change to user {identifier}: {e}")
             else:
                 structure_db.last_state = structure.get("state")
                 structure_db.save()
@@ -234,7 +234,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                     logger.debug(f"Sent fuel warning to {identifier}")
 
             except Exception as e:
-                logger.info(f"Could not send fuel warning to {identifier}: {e}")
+                logger.warning(f"Could not send fuel warning to {identifier}: {e}")
             else:
                 structure_db.last_fuel_warning = current_fuel_warning
                 structure_db.save()

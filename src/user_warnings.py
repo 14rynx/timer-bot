@@ -7,9 +7,7 @@ from preston import Preston
 from models import Character, User
 
 # Configure the logger
-logger = logging.getLogger('discord.warnings')
-logger.setLevel(logging.WARNING)
-
+logger = logging.getLogger('timer.warnings')
 
 async def send_warning(user: User, channel, warning_text: str, log_text: str = "", send_now: bool = False):
     """Send a warning message to the user, logs if it was successful
@@ -17,9 +15,9 @@ async def send_warning(user: User, channel, warning_text: str, log_text: str = "
     if user.next_warning < datetime.now(tz=timezone.utc).timestamp() or send_now:
         try:
             await channel.send(warning_text)
-            logger.debug(f"Sent warning {log_text}.")
+            logger.info(f"Sent warning {log_text}.")
         except Exception as e:
-            logger.info(f"Could not send warning {log_text}: {e}")
+            logger.warning(f"Could not send warning {log_text}: {e}")
         else:
             if not send_now:
                 user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()

@@ -18,7 +18,8 @@ from utils import lookup, with_refresh, get_channel, send_large_message
 
 # Configure the logger
 logger = logging.getLogger('discord.main')
-logger.setLevel(logging.INFO)
+log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
+logger.setLevel(log_level)
 
 # Initialize the database
 initialize_database()
@@ -30,7 +31,7 @@ base_preston = Preston(
     client_secret=os.environ["CCP_SECRET_KEY"],
     callback_url=os.environ["CCP_REDIRECT_URI"],
     scope="esi-corporations.read_structures.v1 esi-characters.read_notifications.v1 esi-universe.read_structures.v1",
-    timeout=10,
+    timeout=6,
 )
 
 # Setup Discord

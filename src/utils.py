@@ -1,14 +1,8 @@
-import logging
-
 import discord
 from preston import Preston
 
 from models import Character
 from user_warnings import send_channel_warning
-
-# Configure the logger
-logger = logging.getLogger('discord.utils')
-logger.setLevel(logging.WARNING)
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -48,7 +42,6 @@ def with_refresh(preston_instance: Preston, character: Character) -> Preston:
         new_kwargs["access_token"] = None
         new = Preston(**new_kwargs)
     except KeyError:
-        logger.info(f"Could not authenticate with {character}.")
         raise ValueError(f"Could not authenticate with {character}.")
 
     return new
