@@ -204,10 +204,8 @@ async def info(ctx):
             try:
                 authed_preston = with_refresh(base_preston, character)
             except ValueError:
-                await send_esi_permission_warning(user, ctx, character.character_id, base_preston)
+                await send_esi_permission_warning(character, ctx, base_preston)
                 continue
-
-            character_name = authed_preston.whoami()['CharacterName']
 
             corporation_id = authed_preston.get_op(
                 'get_characters_character_id',
@@ -243,7 +241,7 @@ async def info(ctx):
     # Build message with all structure info
     output = "\n"
     if structures_info:
-        output += "\n\n".join(structures_info)
+        output += "".join(structures_info)
     else:
         output += "No structures found!\n"
 
