@@ -6,7 +6,7 @@ from discord.ext import tasks
 from requests import ReadTimeout
 
 from models import Character, Structure, Notification
-from structure import structure_notification_message, structure_info, fuel_message, is_structure_notification
+from structure import structure_notification_message, structure_info, next_fuel_warning, is_structure_notification
 from user_warnings import send_structure_permission_warning, send_esi_permission_warning, \
     send_structure_corp_warning, send_structure_other_warning
 from utils import with_refresh, get_channel
@@ -185,7 +185,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
         structure_id=structure.get('structure_id'),
         defaults={
             "last_state": structure.get('state'),
-            "last_fuel_warning": fuel_message(structure),
+            "last_fuel_warning": next_fuel_warning(structure),
         },
     )
 
@@ -214,7 +214,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                 structure_db.last_state = structure.get("state")
                 structure_db.save()
 
-        current_fuel_warning = fuel_message(structure)
+        current_fuel_warning = next_fuel_warning(structure)
 
         # Send message based on fuel:
         if structure_db.last_fuel_warning != current_fuel_warning:

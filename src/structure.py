@@ -54,7 +54,7 @@ def structure_info(structure: dict) -> str:
     return structure_message
 
 
-def fuel_message(structure: dict) -> int or None:
+def next_fuel_warning(structure: dict) -> int or None:
     """Returns the next fuel warning level a structure is currently on"""
     fuel_expires = to_datetime(structure.get('fuel_expires'))
     if fuel_expires is not None:
@@ -87,11 +87,11 @@ def structure_notification_message(notification: dict, authed_preston: Preston) 
             return f"@everyone Structure {structure_name} is now unanchoring!\n"
         case "StructureUnderAttack":
             # Parse attacker info
-            character_id = get_attacker_name(notification)
+            character_id = get_attacker_character_id(notification)
             if character_id is not None:
                 character_name = authed_preston.get_op(
                     'get_characters_character_id',
-                    character_id=character_id
+                    character_id=str(character_id)
                 ).get("name", "Unknown")
                 attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
             else:
@@ -116,8 +116,8 @@ def get_structure_id(notification: dict) -> int:
     return structure_id
 
 
-def get_attacker_name(notification: dict) -> int:
-    """returns a character_id from the notification or none if no character_id can be found"""
+def get_attacker_character_id(notification: dict) -> int:
+    """returns a character_id from the notification or None if no character_id can be found"""
     character_id = None
     for line in notification.get("text").split("\n"):
         if "charID:" in line:
