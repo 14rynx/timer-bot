@@ -5,6 +5,7 @@ import os
 import secrets
 
 import discord
+from requests.exceptions import HTTPError, ConnectionError
 from discord.ext import commands
 from preston import Preston
 
@@ -87,7 +88,7 @@ def command_error_handler(func):
             return await func(*args, **kwargs)
         except Exception as e:
             logger.error(f"Error in !{func.__name__} command: {e}", exc_info=True)
-            await ctx.send(f"An error occurred in !{func.__name__}.")
+            await ctx.send(f"An error occurred in !{func.__name__} ({e.__class__.__name__}).")
 
     return wrapper
 
@@ -138,9 +139,13 @@ async def characters(ctx):
         for character in user.characters:
             try:
                 authed_preston = with_refresh(base_preston, character)
-            except ValueError:
-                await send_esi_permission_warning(character, ctx, base_preston)
-                continue
+            except HTTPError as exp:
+                if exp.response.status_code == 401:
+                    await send_esi_permission_warning(character, ctx, base_preston)
+                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
+                    continue
+                else:
+                    raise
 
             character_name = authed_preston.whoami()['CharacterName']
             character_names.append(f"- {character_name}")
@@ -203,9 +208,13 @@ async def info(ctx):
         for character in user.characters:
             try:
                 authed_preston = with_refresh(base_preston, character)
-            except ValueError:
-                await send_esi_permission_warning(character, ctx, base_preston)
-                continue
+            except HTTPError as exp:
+                if exp.response.status_code == 401:
+                    await send_esi_permission_warning(character, ctx, base_preston)
+                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
+                    continue
+                else:
+                    raise
 
             corporation_id = authed_preston.get_op(
                 'get_characters_character_id',

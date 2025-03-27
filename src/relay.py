@@ -1,9 +1,8 @@
 import collections
 import logging
-from json import JSONDecodeError
 
+from requests.exceptions import HTTPError, ConnectionError
 from discord.ext import tasks
-from requests import ReadTimeout
 
 from models import Character, Structure, Notification
 from structure import structure_notification_message, structure_info, next_fuel_warning, is_structure_notification
@@ -59,9 +58,15 @@ async def notification_pings(action_lock, preston, bot):
 
             try:
                 authed_preston = with_refresh(preston, character)
-            except ValueError:
-                await send_esi_permission_warning(character, user_channel, preston)
-                logger.warning(f"{character} has no ESI permissions and can not be notified!")
+            except HTTPError as exp:
+                if exp.response.status_code == 401:
+                    await send_esi_permission_warning(character, user_channel, preston)
+                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
+                else:
+                    logger.error(f"{character} got {exp.response.status_code} response, skipping...")
+                continue
+            except ConnectionError as exp:
+                logger.warning(f"{character} got {exp.response.status_code} response, skipping...")
                 continue
 
             try:
@@ -69,24 +74,16 @@ async def notification_pings(action_lock, preston, bot):
                     "get_characters_character_id_notifications",
                     character_id=character.character_id,
                 )
-            except (JSONDecodeError, TimeoutError, ReadTimeout):
+            except ConnectionError:
                 logger.warning(f"Got a network error with {character}, skipping...")
-                continue
+            except HTTPError as exp:
+                logger.warning(f"Got a error response for notification: {exp.response.text} with {character}, skipping...")
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching notifications for {character}: {e}.",
                              exc_info=True)
-                continue
-
-            if type(response) is dict:
-                logger.warning(f"Got a error response for notification: {response} with {character}, skipping...")
-                continue
-
-            for notification in reversed(response):
-                if notification is None:
-                    logger.error(f"Got a None type notification with {character}, skipping...")
-                    continue
-
-                await send_notification_message(notification, user_channel, authed_preston, identifier=str(character))
+            else:
+                for notification in reversed(response):
+                    await send_notification_message(notification, user_channel, authed_preston, identifier=str(character))
 
     except Exception as e:
         logger.error(f"Got an unhandled exception in notification_pings: {e}.", exc_info=True)
@@ -136,43 +133,39 @@ async def status_pings(action_lock, preston, bot):
 
             try:
                 authed_preston = with_refresh(preston, character)
-            except ValueError:
-                await send_esi_permission_warning(character, user_channel, preston)
+            except HTTPError as exp:
+                if exp.response.status_code == 403:
+                    await send_esi_permission_warning(character, user_channel, preston)
+                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
+                else:
+                    logger.error(f"{character} got {exp.response.status_code} response, skipping...")
+                continue
+            except ConnectionError as exp:
+                logger.warning(f"{character} got {exp.response.status_code} response, skipping...")
                 continue
 
             try:
-                reponse = authed_preston.get_op(
+                response = authed_preston.get_op(
                     "get_corporations_corporation_id_structures",
                     corporation_id=character.corporation_id,
                 )
-            except (JSONDecodeError, TimeoutError, ReadTimeout):
+            except ConnectionError:
                 logger.warning(f"Got a network error with {character}, skipping...")
-                continue
+            except HTTPError as exp:
+                response_content = exp.response.json()
+                match response_content.get("error", ""):
+                    case "Character does not have required role(s)":
+                        await send_structure_permission_warning(character, user_channel, authed_preston)
+                    case "Character is not in the corporation":
+                        await send_structure_corp_warning(character, user_channel, authed_preston)
+                    case _:
+                        await send_structure_other_warning(character, user_channel, authed_preston, response_content.get("error", ""))
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching structures for {character}: {e}.",
                              exc_info=True)
-                continue
-
-            if type(reponse) is dict:
-                if "error" in reponse:
-                    match reponse["error"]:
-                        case "Character does not have required role(s)":
-                            await send_structure_permission_warning(character, user_channel, authed_preston)
-                        case "Character is not in the corporation":
-                            await send_structure_corp_warning(character, user_channel, authed_preston)
-                        case _:
-                            await send_structure_other_warning(character, user_channel, authed_preston,
-                                                               reponse["error"])
-                else:
-                    logger.error(f"Got an unfamiliar response for {character}: {reponse}.", exc_info=True)
-                continue
-
-            for structure in reponse:
-                if structure is None:
-                    logger.error(f"Got a None type structure with {character}, skipping...")
-                    continue
-
-                await send_structure_message(structure, user_channel, identifier=str(character))
+            else:
+                for structure in response:
+                    await send_structure_message(structure, user_channel, identifier=str(character))
 
     except Exception as e:
         logger.error(f"Got an unhandled exception in status_pings: {e}.", exc_info=True)

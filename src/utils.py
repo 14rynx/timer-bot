@@ -1,8 +1,5 @@
-from json import JSONDecodeError
-
 import discord
 from preston import Preston
-from requests import ReadTimeout
 
 from models import Character
 from user_warnings import send_channel_warning
@@ -39,15 +36,10 @@ async def lookup(preston: Preston, string: str, return_type: str) -> int:
 
 def with_refresh(preston_instance: Preston, character: Character) -> Preston:
     """Returns a similar Preston instance with the specified refresh token."""
-    try:
-        new_kwargs = dict(preston_instance._kwargs)
-        new_kwargs["refresh_token"] = character.token
-        new_kwargs["access_token"] = None
-        new = Preston(**new_kwargs)
-    except (KeyError, JSONDecodeError, TimeoutError, ReadTimeout):
-        raise ValueError(f"Could not authenticate with {character}.")
-
-    return new
+    new_kwargs = dict(preston_instance._kwargs)
+    new_kwargs["refresh_token"] = character.token
+    new_kwargs["access_token"] = None
+    return Preston(**new_kwargs)
 
 
 async def get_channel(user, bot):
