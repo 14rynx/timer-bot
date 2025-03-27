@@ -18,7 +18,7 @@ STATUS_CACHE_TIME = 3600
 STATUS_PHASES = 12
 
 # Configure the logger
-logger = logging.getLogger('timer.relay')
+logger = logging.getLogger('discord.timer.relay')
 
 # Configure iteration variables
 notification_phase = -1
@@ -91,12 +91,9 @@ async def notification_pings(action_lock, preston, bot):
 
 async def send_notification_message(notification, user_channel, authed_preston, identifier="<no identifier>"):
     """For a notification from ESI take action and inform a user if required"""
-    logger.debug("Sending notification message")
-
     notification_id = notification.get("notification_id")
 
     if not is_structure_notification(notification):
-        logger.debug(f"Skipping Notification {notification_id} as it is not a structure notification.")
         return
 
     notif, created = Notification.get_or_create(notification_id=notification_id)

@@ -18,7 +18,7 @@ from user_warnings import send_esi_permission_warning, send_structure_permission
 from utils import lookup, with_refresh, get_channel, send_large_message
 
 # Configure the logger
-logger = logging.getLogger('discord.main')
+logger = logging.getLogger('discord.timer')
 log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
 logger.setLevel(log_level)
 

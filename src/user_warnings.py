@@ -7,12 +7,11 @@ from preston import Preston
 from models import Character, User
 
 # Configure the logger
-logger = logging.getLogger('timer.warnings')
+logger = logging.getLogger('discord.timer.warnings')
 
 async def send_warning(user: User, channel, warning_text: str, log_text: str = "", send_now: bool = False):
     """Send a warning message to the user, logs if it was successful
     and sets the warning delay for said user."""
-    logger.info(f"Received warning {log_text}.")
     if user.next_warning < datetime.now(tz=timezone.utc).timestamp() or send_now:
         try:
             await channel.send(warning_text)
@@ -23,6 +22,8 @@ async def send_warning(user: User, channel, warning_text: str, log_text: str = "
             if not send_now:
                 user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
                 user.save()
+    else:
+        logger.info(f"Received warning {log_text}, waiting for next window at {user.next_warning}")
 
 
 async def send_esi_permission_warning(character: Character, channel, preston: Preston, **kwargs):
