@@ -23,7 +23,7 @@ async def send_warning(user: User, channel, warning_text: str, log_text: str = "
                 user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
                 user.save()
     else:
-        logger.info(f"Received warning {log_text}, waiting for next window at {user.next_warning}")
+        logger.debug(f"Received warning {log_text}, waiting for next window at {user.next_warning}")
 
 
 async def send_esi_permission_warning(character: Character, channel, preston: Preston, **kwargs):
