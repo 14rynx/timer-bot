@@ -46,14 +46,15 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
 
     Now view the application and copy the values `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY` to your .env file.
 
-5. Start the container
-    If you run traefik as a reverse-proxy externally:
-    ```shell
-    docker-compose up -d --build
-    ```
-
-    Add the `LE_EMAIL=your_email@mailserver.com` to the .env file so that certbot can send you info about your certificates
-    If you want to run this without any external things:
-    ```shell
-    docker-compose up -d --build -f docker-compose+traefik.yml
-    ```
+5. Start the container.
+    + If you run traefik as a reverse-proxy externally:
+      ```shell
+      docker-compose up -d --build
+      ```
+    
+    + If you want to run this without any external reverse proxy:
+      - Add the `LE_EMAIL=your_email@mailserver.com` to the .env file so that letsencrypt certbot can send you info about your https certificates
+      - Run the docker compose with both timer-bot and traefik with the following command
+      ```shell
+      docker-compose up -d --build -f docker-compose+traefik.yml
+      ```
