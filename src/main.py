@@ -201,7 +201,7 @@ async def revoke(ctx, *args):
 async def info(ctx):
     """Returns the status of all structures linked."""
 
-    structures_info = []
+    structures_info = {}
 
     user = User.get_or_none(User.user_id == str(ctx.author.id))
     if user:
@@ -245,12 +245,13 @@ async def info(ctx):
                 continue
 
             for structure in structure_response:
-                structures_info.append(structure_info(structure))
+                structure_id = structure.get("structure_id")
+                structures_info[structure_id] = structure_info(structure)
 
     # Build message with all structure info
     output = "\n"
     if structures_info:
-        output += "".join(structures_info)
+        output += "".join(map(str, structures_info.values()))
     else:
         output += "No structures found!\n"
 
