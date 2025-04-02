@@ -206,25 +206,39 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
 
         current_fuel_warning = next_fuel_warning(structure)
 
-        # Send message based on fuel:
-        if structure_db.last_fuel_warning != current_fuel_warning:
-            try:
-                if current_fuel_warning > structure_db.last_fuel_warning:
-                    await user_channel.send(
-                        f"Structure {structure.get('name')} has been refueled:\n"
-                        f"{structure_info(structure)}"
-                    )
-                    logger.debug(f"Sent refuel info to {identifier}.")
+        if structure_db.last_fuel_warning is None: # Maybe remove this clause?
+            structure_db.last_fuel_warning = current_fuel_warning
+            structure_db.save()
+            return
 
-                else:
-                    await user_channel.send(
-                        f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is running low on fuel:\n"
-                        f"{structure_info(structure)}"
-                    )
-                    logger.debug(f"Sent fuel warning to {identifier}")
-
-            except Exception as e:
-                logger.warning(f"Could not send fuel warning to {identifier}: {e}")
+        elif current_fuel_warning > structure_db.last_fuel_warning:
+            if structure_db.last_fuel_warning == -1:
+                message = f"Structure {structure.get('name')} got initially fueled with:\n{structure_info(structure)}"
+                logger_info = f"initial fuel info to {identifier}."
             else:
-                structure_db.last_fuel_warning = current_fuel_warning
-                structure_db.save()
+                message = f"Structure {structure.get('name')} has been refueled:\n{structure_info(structure)}"
+                logger_info = f"refuel info to {identifier}."
+        elif current_fuel_warning < structure_db.last_fuel_warning:
+            state = structure.get('state')
+            if current_fuel_warning == -1:
+                if state in ["anchoring", "anchor_vulnerable"]:
+                    return
+                else:
+                    message = f"Final warning, structure {structure.get('name')} ran out of fuel:\n{structure_info(structure)}"
+                    logger_info = f"fuel empty to {identifier}"
+            else:
+                message = (f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is "
+                           f"running low on fuel:\n{structure_info(structure)}")
+                logger_info = f"fuel warning to {identifier}"
+        else:
+            return
+
+        # Send fuel message and update DB if successful
+        try:
+            await user_channel.send(message)
+            logger.debug(f"Sent {logger_info}")
+        except Exception as e:
+            logger.warning(f"Could not send {logger_info}: {e}")
+        else:
+            structure_db.last_fuel_warning = current_fuel_warning
+            structure_db.save()

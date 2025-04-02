@@ -20,10 +20,12 @@ state_mapping = {
 }
 
 # Days when a fuel warning is sent
-fuel_warnings = [30, 7, 3, 2, 1]
+fuel_warnings = [30, 7, 3, 2, 1, 0]
 
 
-def to_datetime(time_string):
+def to_datetime(time_string: str | None) -> datetime | None:
+    if time_string is None:
+        return None
     return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
@@ -49,12 +51,15 @@ def structure_info(structure: dict) -> str:
         structure_message += f"**Fuel:** <t:{int(fuel_expires.timestamp())}> (<t:{int(fuel_expires.timestamp())}:R>) ({fuel_expires} ET)\n"
     else:
         # fuel_expires is None e.g. structure is anchoring
-        structure_message += f"**Fuel:** Not fueled yet (anchoring)\n"
+        if state in ["anchoring", "anchor_vulnerable"]:
+            structure_message += f"**Fuel:** Not fueled yet (anchoring)\n"
+        else:
+            structure_message += f"**Fuel:** Out of fuel!\n"
 
     return structure_message
 
 
-def next_fuel_warning(structure: dict) -> int or None:
+def next_fuel_warning(structure: dict) -> int:
     """Returns the next fuel warning level a structure is currently on"""
     fuel_expires = to_datetime(structure.get('fuel_expires'))
     if fuel_expires is not None:
@@ -64,11 +69,8 @@ def next_fuel_warning(structure: dict) -> int or None:
             if time_left > timedelta(days=fuel_warning_days):
                 return fuel_warning_days
 
-        if time_left.days < 0:
-            return 0
-    else:
-        # fuel_expires is None e.g. structure is anchoring
-        return None
+    # fuel_expires is None e.g. structure is anchoring or out of fuel
+    return -1
 
 
 def structure_notification_message(notification: dict, authed_preston: Preston) -> str:
@@ -107,7 +109,7 @@ def structure_notification_message(notification: dict, authed_preston: Preston) 
             return ""
 
 
-def get_structure_id(notification: dict) -> int:
+def get_structure_id(notification: dict) -> int | None:
     """returns a structure id from the notification or none if no structure_id can be found"""
     structure_id = None
     for line in notification.get("text").split("\n"):
@@ -116,7 +118,7 @@ def get_structure_id(notification: dict) -> int:
     return structure_id
 
 
-def get_attacker_character_id(notification: dict) -> int:
+def get_attacker_character_id(notification: dict) -> int | None:
     """returns a character_id from the notification or None if no character_id can be found"""
     character_id = None
     for line in notification.get("text").split("\n"):
