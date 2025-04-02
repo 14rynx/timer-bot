@@ -207,7 +207,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
         current_fuel_warning = next_fuel_warning(structure)
 
         # Send message based on fuel:
-        if structure_db.last_fuel_warning != current_fuel_warning:
+        if current_fuel_warning is not None and structure_db.last_fuel_warning != current_fuel_warning:
             try:
                 if current_fuel_warning > structure_db.last_fuel_warning:
                     await user_channel.send(
