@@ -51,7 +51,10 @@ def structure_info(structure: dict) -> str:
         structure_message += f"**Fuel:** <t:{int(fuel_expires.timestamp())}> (<t:{int(fuel_expires.timestamp())}:R>) ({fuel_expires} ET)\n"
     else:
         # fuel_expires is None e.g. structure is anchoring
-        structure_message += f"**Fuel:** Not fueled yet (anchoring)\n"
+        if state in ["anchoring", "anchor_vulnerable"]:
+            structure_message += f"**Fuel:** Not fueled yet (anchoring)\n"
+        else:
+            structure_message += f"**Fuel:** Out of fuel!\n"
 
     return structure_message
 
