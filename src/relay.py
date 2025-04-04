@@ -219,9 +219,14 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
             message = f"Structure {structure.get('name')} has been refueled:\n{structure_info(structure)}"
             logger_info = f"refuel info to {identifier}."
         elif current_fuel_warning < structure_db.last_fuel_warning:
-            message = (f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is "
-                       f"running low on fuel:\n{structure_info(structure)}")
-            logger_info = f"fuel warning to {identifier}"
+            if current_fuel_warning == -1:
+                message = (f"Final warning, structure {structure.get('name')} ran out of fuel "
+                           f"and will go low-power:\n{structure_info(structure)}")
+                logger_info = f"fuel empty to {identifier}"
+            else:
+                message = (f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is "
+                           f"running low on fuel:\n{structure_info(structure)}")
+                logger_info = f"fuel warning to {identifier}"
         else:
             return
 
