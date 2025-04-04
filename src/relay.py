@@ -110,9 +110,6 @@ async def send_notification_message(notification, user_channel, authed_preston, 
             notif.sent = True
             notif.save()
 
-    else:
-        logger.debug(f"Skipping notification with id: {notification_id} as it was previously sent.")
-
 
 @tasks.loop(seconds=STATUS_CACHE_TIME // STATUS_PHASES + 1)
 async def status_pings(action_lock, preston, bot):
