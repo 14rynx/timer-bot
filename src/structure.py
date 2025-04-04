@@ -59,7 +59,7 @@ def structure_info(structure: dict) -> str:
     return structure_message
 
 
-def next_fuel_warning(structure: dict) -> int | None:
+def next_fuel_warning(structure: dict) -> int:
     """Returns the next fuel warning level a structure is currently on"""
     fuel_expires = to_datetime(structure.get('fuel_expires'))
     if fuel_expires is not None:
@@ -69,10 +69,8 @@ def next_fuel_warning(structure: dict) -> int | None:
             if time_left > timedelta(days=fuel_warning_days):
                 return fuel_warning_days
 
-        return -1
-    else:
-        # fuel_expires is None e.g. structure is anchoring
-        return None
+    # fuel_expires is None e.g. structure is anchoring or out of fuel
+    return -1
 
 
 def structure_notification_message(notification: dict, authed_preston: Preston) -> str:
