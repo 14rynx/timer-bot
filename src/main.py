@@ -14,7 +14,7 @@ from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
 from user_warnings import send_esi_permission_warning, send_structure_permission_warning, send_structure_corp_warning, \
-    send_structure_other_warning
+    send_structure_other_warning, send_channel_warning
 from utils import lookup, with_refresh, get_channel, send_large_message
 
 # Configure the logger
@@ -41,22 +41,6 @@ intent.messages = True
 intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
 
-
-async def set_callback(ctx):
-    user = User.get(user_id=str(ctx.author.id))
-    user.callback_channel_id = str(ctx.channel.id)
-    user.save()
-
-    if isinstance(ctx.channel, discord.channel.DMChannel):
-        await ctx.send(
-            "### WARNING\n"
-            "This channel can only temporarily be used for notifications,"
-            " as it changes IDs and eventually will no longer be available to the bot!\n"
-            "Use `!callback` outside of a DM channel e.g. in a server so the bot can reach you indefinitely."
-        )
-
-    else:
-        await ctx.send("Set this channel as callback for notifications.")
 
 
 async def log_statistics():
@@ -123,9 +107,24 @@ async def auth(ctx):
 
 @bot.command()
 @command_error_handler
-async def callback(ctx):
-    """Sets the channel where you want to be notified if something happens."""
-    await set_callback(ctx)
+async def callback(ctx, channel: discord.TextChannel = None):
+    """Sets the channel where you want to be notified if something happens.
+
+    Optionally, mention a channel (e.g. #alerts) to set it as the callback.
+    """
+    user = User.get_or_none(user_id=str(ctx.author.id))
+    if user:
+        target_channel = channel or ctx.channel
+        user.callback_channel_id = str(target_channel.id)
+        user.save()
+
+        if isinstance(target_channel, discord.DMChannel):
+            await send_channel_warning(user, target_channel, send_now=True)
+            await ctx.send(f"Set this DM-channel as callback for notifications.")
+        else:
+            await ctx.send(f"Set {target_channel.mention} as callback for notifications.")
+    else:
+        await ctx.send("You are not a registered user. Use `!auth` to authorize some characters first.")
 
 
 @bot.command()
@@ -142,7 +141,6 @@ async def characters(ctx):
             except HTTPError as exp:
                 if exp.response.status_code == 401:
                     await send_esi_permission_warning(character, ctx, base_preston)
-                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
                     continue
                 else:
                     raise
@@ -211,7 +209,6 @@ async def info(ctx):
             except HTTPError as exp:
                 if exp.response.status_code == 401:
                     await send_esi_permission_warning(character, ctx, base_preston)
-                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
                     continue
                 else:
                     raise
