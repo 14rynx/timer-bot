@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from json import JSONDecodeError
 
+from discord import Interaction
 from preston import Preston
 
 from models import Character, User
@@ -9,24 +10,35 @@ from models import Character, User
 # Configure the logger
 logger = logging.getLogger('discord.timer.warnings')
 
-async def send_warning(user: User, channel, warning_text: str, log_text: str = "", send_now: bool = False):
-    """Send a warning message to the user, logs if it was successful
-    and sets the warning delay for said user."""
-    if user.next_warning < datetime.now(tz=timezone.utc).timestamp() or send_now:
+sent_warnings = {}
+
+
+async def send_background_warning(channel, warning: tuple[str, str]):
+    """Send a warning message to a user from a background process, making sure
+    not to repeat the warning to many times and spamming the user"""
+
+    warning_text, log_text = warning
+
+    if log_text in sent_warnings and sent_warnings[log_text] < datetime.now(tz=timezone.utc).timestamp():
+        logger.debug(f"Received warning {log_text}, waiting for next window at {sent_warnings[log_text]}")
+    else:
         try:
             await channel.send(warning_text)
             logger.info(f"Sent warning {log_text}.")
         except Exception as e:
             logger.warning(f"Could not send warning {log_text}: {e}")
         else:
-            if not send_now:
-                user.next_warning = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
-                user.save()
-    else:
-        logger.debug(f"Received warning {log_text}, waiting for next window at {user.next_warning}")
+            # Mark this exact warning as already sent
+            sent_warnings[log_text] = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
 
 
-async def send_esi_permission_warning(character: Character, channel, preston: Preston, **kwargs):
+async def send_foreground_warning(interaction: Interaction, warning: tuple[str, str]):
+    """Send an immediate warning to a foreground interaction."""
+    warning_text, log_text = warning
+    await interaction.followup.send(warning_text)
+
+
+async def esi_permission_warning(character: Character, preston: Preston):
     """Send a warning to users to fix ESI permissions."""
     try:
         character_name = preston.get_op(
@@ -48,12 +60,13 @@ async def send_esi_permission_warning(character: Character, channel, preston: Pr
             "- Otherwise re-authenticate with `!auth`."
         )
 
-    await send_warning(character.user, channel, warning_text, log_text=f"esi_permission_warning for {character}",
-                       **kwargs)
+    log_text = f"esi_permission_warning for {character}"
+
+    return warning_text, log_text
 
 
-async def send_structure_permission_warning(character: Character, channel, authed_preston: Preston, **kwargs):
-    """Send a warning to users to fix in corporation permissions."""
+async def structure_permission_warning(character: Character, authed_preston: Preston):
+    """A warning to users to fix in corporation permissions."""
 
     character_name = authed_preston.whoami()["CharacterName"]
 
@@ -65,12 +78,13 @@ async def send_structure_permission_warning(character: Character, channel, authe
         "\"Role Management\" -> \"Station Services\" and add the \"Station Manager\" role, then check them with `!info`."
     )
 
-    await send_warning(character.user, channel, warning_text, log_text=f"structure_permission_warning for {character}",
-                       **kwargs)
+    log_text = f"structure_permission_warning for {character}"
+
+    return warning_text, log_text
 
 
-async def send_structure_corp_warning(character: Character, channel, authed_preston: Preston, **kwargs):
-    """Send a warning to users who have changed corp."""
+async def structure_corp_warning(character: Character, authed_preston: Preston):
+    """A warning to users who have changed corp."""
     character_name = authed_preston.whoami()["CharacterName"]
 
     warning_text = (
@@ -82,12 +96,12 @@ async def send_structure_corp_warning(character: Character, channel, authed_pres
         "- If you want to use this character again with the old corporation, re-join the old corporation in-game."
     )
 
-    await send_warning(character.user, channel, warning_text, log_text=f"structure_corp_warning for {character}",
-                       **kwargs)
+    log_text = f"structure_corp_warning for {character}"
+
+    return warning_text, log_text
 
 
-async def send_structure_other_warning(character: Character, channel, authed_preston: Preston, error_value: str,
-                                       **kwargs):
+async def structure_other_warning(character: Character, authed_preston: Preston, error_value: str):
     character_name = authed_preston.whoami()["CharacterName"]
 
     warning_text = (
@@ -99,15 +113,18 @@ async def send_structure_other_warning(character: Character, channel, authed_pre
         "- Otherwise you can check if your permissions are correct with `!info`."
     )
 
-    await send_warning(character.user, channel, warning_text, log_text=f"structure_other_warning for {character}",
-                       **kwargs)
+    log_text = f"structure_other_warning for {character}"
+
+    return warning_text, log_text
 
 
-async def send_channel_warning(user, channel, **kwargs):
+async def channel_warning(user):
+    """A warning that the channel might not be reachable anymore"""
     warning_text = (
         "### WARNING\n"
         "The channel you are using for timer-bot callbacks is a private channel which the bot might eventually no longer "
         "be able to reach. Please use a channel in a server as your callback location."
     )
 
-    await send_warning(user, channel, warning_text, log_text=f"channel_warning for {user}", **kwargs)
+    log_text = f"channel_warning for {user}"
+    return warning_text, log_text

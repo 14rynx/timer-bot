@@ -2,7 +2,7 @@ import discord
 from preston import Preston
 
 from models import Character
-from user_warnings import send_channel_warning
+from user_warnings import channel_warning, send_background_warning
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -46,7 +46,7 @@ async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
     channel = await bot.fetch_channel(int(user.callback_channel_id))
     if channel is not None and isinstance(channel, discord.channel.DMChannel):
-        await send_channel_warning(user, channel)
+        await send_background_warning(channel, await channel_warning(user))
     return channel
 
 

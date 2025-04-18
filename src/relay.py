@@ -6,8 +6,8 @@ from discord.ext import tasks
 
 from models import Character, Structure, Notification
 from structure import structure_notification_message, structure_info, next_fuel_warning, is_structure_notification
-from user_warnings import send_structure_permission_warning, send_esi_permission_warning, \
-    send_structure_corp_warning, send_structure_other_warning
+from user_warnings import send_background_warning, structure_permission_warning, esi_permission_warning, \
+    structure_corp_warning, structure_other_warning
 from utils import with_refresh, get_channel
 
 # Constants
@@ -60,7 +60,10 @@ async def notification_pings(action_lock, preston, bot):
                 authed_preston = with_refresh(preston, character)
             except HTTPError as exp:
                 if exp.response.status_code == 401:
-                    await send_esi_permission_warning(character, user_channel, preston)
+                    await send_background_warning(
+                        user_channel,
+                        await esi_permission_warning(character, preston)
+                    )
                     logger.warning(f"{character} has no ESI permissions and can not be notified!")
                 else:
                     logger.error(f"{character} got {exp.response.status_code} response, skipping...")
@@ -77,13 +80,15 @@ async def notification_pings(action_lock, preston, bot):
             except ConnectionError:
                 logger.warning(f"Got a network error with {character}, skipping...")
             except HTTPError as exp:
-                logger.warning(f"Got a error response for notification: {exp.response.text} with {character}, skipping...")
+                logger.warning(
+                    f"Got a error response for notification: {exp.response.text} with {character}, skipping...")
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching notifications for {character}: {e}.",
                              exc_info=True)
             else:
                 for notification in reversed(response):
-                    await send_notification_message(notification, user_channel, authed_preston, identifier=str(character))
+                    await send_notification_message(notification, user_channel, authed_preston,
+                                                    identifier=str(character))
 
     except Exception as e:
         logger.error(f"Got an unhandled exception in notification_pings: {e}.", exc_info=True)
@@ -129,7 +134,7 @@ async def status_pings(action_lock, preston, bot):
                 authed_preston = with_refresh(preston, character)
             except HTTPError as exp:
                 if exp.response.status_code == 403:
-                    await send_esi_permission_warning(character, user_channel, preston)
+                    await esi_permission_warning(character, user_channel, preston)
                     logger.warning(f"{character} has no ESI permissions and can not be notified!")
                 else:
                     logger.error(f"{character} got {exp.response.status_code} response, skipping...")
@@ -149,11 +154,22 @@ async def status_pings(action_lock, preston, bot):
                 response_content = exp.response.json()
                 match response_content.get("error", ""):
                     case "Character does not have required role(s)":
-                        await send_structure_permission_warning(character, user_channel, authed_preston)
+                        await send_background_warning(
+                            user_channel,
+                            await structure_permission_warning(character, authed_preston),
+                        )
                     case "Character is not in the corporation":
-                        await send_structure_corp_warning(character, user_channel, authed_preston)
+                        await send_background_warning(
+                            user_channel,
+                            await structure_corp_warning(character, authed_preston),
+                        )
                     case _:
-                        await send_structure_other_warning(character, user_channel, authed_preston, response_content.get("error", ""))
+                        await send_background_warning(
+                            user_channel,
+                            await structure_other_warning(
+                                character, authed_preston, response_content.get("error", "")
+                            ),
+                        )
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching structures for {character}: {e}.",
                              exc_info=True)
@@ -203,7 +219,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
 
         current_fuel_warning = next_fuel_warning(structure)
 
-        if structure_db.last_fuel_warning is None: # Maybe remove this clause?
+        if structure_db.last_fuel_warning is None:  # Maybe remove this clause?
             structure_db.last_fuel_warning = current_fuel_warning
             structure_db.save()
             return

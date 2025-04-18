@@ -5,17 +5,18 @@ import os
 import secrets
 
 import discord
-from requests.exceptions import HTTPError, ConnectionError
+from discord import Interaction, app_commands
 from discord.ext import commands
 from preston import Preston
+from requests.exceptions import HTTPError
 
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
-from user_warnings import send_esi_permission_warning, send_structure_permission_warning, send_structure_corp_warning, \
-    send_structure_other_warning, send_channel_warning
-from utils import lookup, with_refresh, get_channel, send_large_message
+from user_warnings import send_foreground_warning, esi_permission_warning, structure_permission_warning, \
+    structure_corp_warning, structure_other_warning, channel_warning
+from utils import lookup, with_refresh, get_channel
 
 # Configure the logger
 logger = logging.getLogger('discord.timer')
@@ -42,7 +43,6 @@ intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
 
 
-
 async def log_statistics():
     """Log the number of users and their characters on bot startup."""
     try:
@@ -65,14 +65,14 @@ def command_error_handler(func):
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        ctx = args[0]
-        logger.info(f"{ctx.author.name} used !{func.__name__}")
+        interaction, *arguments = args
+        logger.info(f"{interaction.user.name} used !{func.__name__} {arguments} {kwargs}")
 
         try:
             return await func(*args, **kwargs)
         except Exception as e:
             logger.error(f"Error in !{func.__name__} command: {e}", exc_info=True)
-            await ctx.send(f"An error occurred in !{func.__name__} ({e.__class__.__name__}).")
+            await interaction.response.send_message(f"An error occurred in !{func.__name__}.")
 
     return wrapper
 
@@ -84,63 +84,81 @@ async def on_ready():
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
     callback_server.start(base_preston)
+
+    logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    try:
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} slash commands.")
+    except Exception as e:
+        logger.error(f"Failed to sync commands: {e}", exc_info=True)
+
     await log_statistics()
 
 
-@bot.command()
+@bot.tree.command(name="auth", description="Sends you an authorization link for characters.")
 @command_error_handler
-async def auth(ctx):
-    """Sends you an authorization link for a character."""
-
+async def auth(interaction: Interaction):
     secret_state = secrets.token_urlsafe(60)
 
     user, created = User.get_or_create(
-        user_id=str(ctx.author.id),
-        defaults={"callback_channel_id": str(ctx.channel.id)},
+        user_id=str(interaction.user.id),
+        defaults={"callback_channel_id": str(interaction.channel.id)},
     )
     Challenge.delete().where(Challenge.user == user).execute()
     Challenge.create(user=user, state=secret_state)
 
     full_link = f"{base_preston.get_authorize_url()}&state={secret_state}"
-    await ctx.author.send(f"Use this [authentication link]({full_link}) to authorize your characters.")
+    await interaction.response.send_message(
+        f"Use this [authentication link]({full_link}) to authorize your characters.", ephemeral=True
+    )
 
 
-@bot.command()
+@bot.tree.command(name="callback", description="Sets the channel where you want to be notified if something happens.")
+@app_commands.describe(
+    channel="Discord Channel where you want to recieve structure information, of not given uses the current one.",
+)
 @command_error_handler
-async def callback(ctx, channel: discord.TextChannel = None):
+async def callback(interaction: Interaction, channel: discord.TextChannel | None = None):
     """Sets the channel where you want to be notified if something happens.
 
     Optionally, mention a channel (e.g. #alerts) to set it as the callback.
     """
-    user = User.get_or_none(user_id=str(ctx.author.id))
-    if user:
-        target_channel = channel or ctx.channel
-        user.callback_channel_id = str(target_channel.id)
-        user.save()
+    user = User.get_or_none(user_id=str(interaction.user.id))
+    if user is None:
+        await interaction.response.send_message(
+            "You are not a registered user. Use `!auth` to authorize some characters first."
+        )
+        return
 
-        if isinstance(target_channel, discord.DMChannel):
-            await send_channel_warning(user, target_channel, send_now=True)
-            await ctx.send(f"Set this DM-channel as callback for notifications.")
-        else:
-            await ctx.send(f"Set {target_channel.mention} as callback for notifications.")
+    target_channel = channel or interaction.channel
+    user.callback_channel_id = str(target_channel.id)
+    user.save()
+
+    if isinstance(target_channel, discord.DMChannel):
+        await send_foreground_warning(interaction, await channel_warning(user))
+        await interaction.response.send_message(f"Set this DM-channel as callback for notifications.")
     else:
-        await ctx.send("You are not a registered user. Use `!auth` to authorize some characters first.")
+        await interaction.response.send_message(f"Set {target_channel.mention} as callback for notifications.")
 
 
-@bot.command()
+@bot.tree.command(name="characters", description="Shows all authorized characters")
 @command_error_handler
-async def characters(ctx):
+async def characters(interaction: Interaction):
+    await interaction.response.defer(ephemeral=True)
     """Displays your currently authorized characters."""
 
     character_names = []
-    user = User.get_or_none(User.user_id == str(ctx.author.id))
+    user = User.get_or_none(User.user_id == str(interaction.user.id))
     if user:
         for character in user.characters:
             try:
                 authed_preston = with_refresh(base_preston, character)
             except HTTPError as exp:
                 if exp.response.status_code == 401:
-                    await send_esi_permission_warning(character, ctx, base_preston)
+                    await send_foreground_warning(
+                        interaction,
+                        await esi_permission_warning(character, base_preston)
+                    )
                     continue
                 else:
                     raise
@@ -148,28 +166,35 @@ async def characters(ctx):
             character_name = authed_preston.whoami()['CharacterName']
             character_names.append(f"- {character_name}")
 
-    if character_names:
-        character_names_body = "\n".join(character_names)
-        await send_large_message(
-            ctx,
-            f"You have the following character(s) authenticated:\n{character_names_body}"
-        )
-    else:
-        await ctx.send("You have no authorized characters!")
+    if not character_names:
+        await interaction.followup.send("You have no authorized characters!", ephemeral=True)
+        return
+
+    character_names_body = "\n".join(character_names)
+    await interaction.followup.send(
+        f"You have the following character(s) authenticated:\n{character_names_body}", ephemeral=True
+    )
 
 
-@bot.command()
+@bot.tree.command(
+    name="revoke",
+    description="Revokes ESI access for your characters."
+)
+@app_commands.describe(
+    character_name="Name of the character to revoke, revoke all if empty."
+)
 @command_error_handler
-async def revoke(ctx, *args):
-    """Revokes ESI access from all your characters.
-    :args: Character that you want to revoke access to."""
-
-    user = User.get_or_none(User.user_id == str(ctx.author.id))
+async def revoke(interaction: Interaction, character_name: str | None = None):
+    await interaction.response.defer(ephemeral=True)
+    user = User.get_or_none(User.user_id == str(interaction.user.id))
 
     if not user:
-        await ctx.send(f"You did not have any authorized characters in the first place.")
+        await interaction.followup.send(
+            f"You did not have any authorized characters in the first place.",
+            ephemeral=True
+        )
 
-    if len(args) == 0:
+    if character_name is None:
         user_characters = Character.select().where(Character.user == user)
         if user_characters:
             for character in user_characters:
@@ -177,38 +202,45 @@ async def revoke(ctx, *args):
 
         user.delete_instance()
 
-        await ctx.send(f"Successfully revoked access to all your characters.")
+        await interaction.followup.send(f"Successfully revoked access to all your characters.", ephemeral=True)
 
     else:
         try:
-            character_id = await lookup(base_preston, " ".join(args), return_type="characters")
+            character_id = await lookup(base_preston, character_name, return_type="characters")
         except ValueError:
-            args_concatenated = " ".join(args)
-            await ctx.send(f"Args `{args_concatenated}` could not be parsed or looked up.")
+            await  interaction.followup.send(
+                f"Args `{character_name}` could not be parsed or looked up.",
+                ephemeral=True
+            )
         else:
             character = user.characters.select().where(Character.character_id == character_id).first()
             if character:
                 character.delete_instance()
-                await ctx.send(f"Successfully removed your character.")
+                await interaction.followup.send(f"Successfully removed {character_name}.", ephemeral=True)
             else:
-                await ctx.send("You have no character with that name linked.")
+                await interaction.followup.send(
+                    "You have no character named {character_name} linked.",
+                    ephemeral=True
+                )
 
 
-@bot.command()
+@bot.tree.command(
+    name="info",
+    description="Returns the status of all structures linked."
+)
 @command_error_handler
-async def info(ctx):
-    """Returns the status of all structures linked."""
-
+async def info(interaction: Interaction):
+    await interaction.response.defer(ephemeral=True)
     structures_info = {}
 
-    user = User.get_or_none(User.user_id == str(ctx.author.id))
+    user = User.get_or_none(User.user_id == str(interaction.user.id))
     if user:
         for character in user.characters:
             try:
                 authed_preston = with_refresh(base_preston, character)
             except HTTPError as exp:
                 if exp.response.status_code == 401:
-                    await send_esi_permission_warning(character, ctx, base_preston)
+                    await send_foreground_warning(interaction, esi_permission_warning(character, base_preston))
                     continue
                 else:
                     raise
@@ -228,14 +260,21 @@ async def info(ctx):
                 if "error" in structure_response:
                     match structure_response["error"]:
                         case "Character does not have required role(s)":
-                            await send_structure_permission_warning(character, ctx, authed_preston, send_now=True)
+                            await send_foreground_warning(
+                                interaction,
+                                await structure_permission_warning(character, authed_preston)
+                            )
                         case "Character is not in the corporation":
-                            await send_structure_corp_warning(character, ctx, authed_preston, send_now=True)
+                            await send_foreground_warning(
+                                interaction,
+                                await structure_corp_warning(character, authed_preston)
+                            )
                         case _:
-                            await send_structure_other_warning(
-                                character, ctx, authed_preston,
-                                structure_response["error"],
-                                send_now=True
+                            await send_foreground_warning(
+                                interaction,
+                                await structure_other_warning(
+                                    character, authed_preston, structure_response.get("error", "")
+                                )
                             )
                 else:
                     logger.error(f"Got an unfamiliar response for {character}: {structure_response}.", exc_info=True)
@@ -252,30 +291,36 @@ async def info(ctx):
     else:
         output += "No structures found!\n"
 
-    await send_large_message(ctx, output)
+    await interaction.followup.send(output, ephemeral=True)
 
 
-@bot.command()
+@bot.tree.command(
+    name="action",
+    description="Sends a text to all user for a call to action."
+)
+@app_commands.describe(
+    text="Call to action text to sed to all users."
+)
 @command_error_handler
-async def action(ctx, *action_text):
+async def action(interaction: Interaction, text: str):
     """Admin only: send a message to all users concerning the bot."""
-    if int(ctx.author.id) != int(os.environ["ADMIN"]):
-        await ctx.send("You are not authorized to perform this action.")
+    if int(interaction.user.id) != int(os.environ["ADMIN"]):
+        await interaction.response.send_message("You are not authorized to perform this action.")
 
-    action_text_concatenated = " ".join(action_text)
+    await interaction.response.send_message("Sending action text...")
 
     user_count = 0
     for user in User.select():
         try:
             channel = await get_channel(user, bot)
-            await channel.send(action_text_concatenated)
+            await channel.send(text)
         except discord.errors.Forbidden:
-            await ctx.send(f"Could not reach user {user}.")
+            await interaction.followup.send(f"Could not reach user {user}.")
             logger.info(f"Could not reach user {user}.")
         user_count += 1
 
-    await ctx.send(f"Sent action text to {user_count} users. The message looks like the following:")
-    await ctx.send(action_text_concatenated)
+    await interaction.followup.send(f"Sent action text to {user_count} users. The message looks like the following:")
+    await interaction.followup.send(text)
 
 
 if __name__ == "__main__":

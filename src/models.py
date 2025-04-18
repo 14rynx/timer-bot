@@ -12,7 +12,7 @@ class BaseModel(Model):
 class User(BaseModel):
     user_id = CharField(primary_key=True)
     callback_channel_id = CharField()
-    next_warning = IntegerField(default=0)
+    next_warning = IntegerField(default=0) # This is no longer used
 
     def __repr__(self):
         return f"User(user_id={self.user_id}, callback_channel_id={self.callback_channel_id}, next_warning={self.next_warning})"
