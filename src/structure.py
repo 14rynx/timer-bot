@@ -20,7 +20,7 @@ state_mapping = {
 }
 
 # Days when a fuel warning is sent
-fuel_warnings = [30, 7, 3, 2, 1, 0]
+fuel_warnings = [30, 15, 7, 3, 2, 1, 0]
 
 
 def to_datetime(time_string: str | None) -> datetime | None:
