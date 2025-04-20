@@ -309,11 +309,14 @@ async def action(interaction: Interaction, text: str):
 
     await interaction.response.send_message("Sending action text...")
 
+    used_channels = set()
     user_count = 0
     for user in User.select():
         try:
             channel = await get_channel(user, bot)
-            await channel.send(text)
+            if channel.id not in used_channels:
+                await channel.send(text)
+                used_channels.add(channel.id)
         except discord.errors.Forbidden:
             await interaction.followup.send(f"Could not reach user {user}.")
             logger.info(f"Could not reach user {user}.")
