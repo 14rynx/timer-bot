@@ -230,7 +230,7 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
 )
 @command_error_handler
 async def info(interaction: Interaction):
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
     structures_info = {}
 
     user = User.get_or_none(User.user_id == str(interaction.user.id))
@@ -291,7 +291,7 @@ async def info(interaction: Interaction):
     else:
         output += "No structures found!\n"
 
-    await interaction.followup.send(output, ephemeral=True)
+    await interaction.followup.send(output)
 
 
 @bot.tree.command(
