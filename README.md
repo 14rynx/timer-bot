@@ -10,9 +10,11 @@ If you just want to know what is going on, without having to run a full [Allianc
 ### Written Guide
 If you want to set up this bot quickly, you can use the following [invite link](https://discord.com/oauth2/authorize?client_id=1180817944813518879&permissions=3072&scope=bot).
 
-Type `!help` to see all commands and `!auth` to authorize a character.
-This character needs to have the `Station Manager` role to allow API access to his corporation's structures.
-(You can find it in game Corporation -> Administration -> Role Management -> Station Services)
+Type `/auth` to authorize a character. This character needs to have the `Station Manager` role to allow API access to his corporation's structures.
+(You can find it in game Corporation -> Administration -> Role Management -> Station Services). Once authorized you can use `/info` to see all
+your structures, `/characters` to see your authorized characters and `/callback` to set where you want to be notified.
+Once you are done and no longer want to use the bot, use `/revoke` to delete the esi tokens.
+
 For any things regarding maintenance I will try to notify people on my community [discord sever](https://discord.com/invite/fT3eShrg5g).
 
 ### Video Guide
