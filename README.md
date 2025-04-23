@@ -7,19 +7,22 @@ If you just want to know what is going on, without having to run a full [Allianc
 
 ## Using the Public Instance of the Bot
 
-### Written Guide
-If you want to set up this bot quickly, you can use the following [invite link](https://discord.com/oauth2/authorize?client_id=1180817944813518879&permissions=3072&scope=bot).
+You can use the following [invite link](https://discord.com/oauth2/authorize?client_id=1180817944813518879&permissions=3072&scope=bot) to add the bot to your discord server.
+Please also join my [discord sever](https://discord.com/invite/fT3eShrg5g) if you want any info on updates / maintenance.
 
-Type `/auth` to authorize a character. This character needs to have the `Station Manager` role to allow API access to his corporation's structures.
-(You can find it in game Corporation -> Administration -> Role Management -> Station Services). Once authorized you can use `/info` to see all
-your structures, `/characters` to see your authorized characters and `/callback` to set where you want to be notified.
-Once you are done and no longer want to use the bot, use `/revoke` to delete the esi tokens.
+To set up the bot, do the follwing:
+- Make sure your character(s) you want to use have the `Station Manager` role. You can find it in game under "Corporation" -> "Administration" -> "Role Management" -> "Station Services".
+- Use `/auth`to get an auhtorization link.  Grant to the bot access to your structure info and notifications.
 
-For any things regarding maintenance I will try to notify people on my community [discord sever](https://discord.com/invite/fT3eShrg5g).
+Now you can use any of the other commands:
+- `/characters` to see a list of authorized characters.
+- `/info` to see all your structures and timers / fuel.
+- `/callback` to set on which channel you want to recieve notifications.
+- `/revoke` to delete the esi tokens and stop using the bot.
 
-### Video Guide
-
-[![Video Guide](https://img.youtube.com/vi/s6n5UfaSpWg/0.jpg)](https://www.youtube.com/watch?v=s6n5UfaSpWg)
+### Demonstration Video
+Note: This video is slightly outdated. The bot now uses `/` to start commands and not `!`.
+[![Demonstration Video](https://img.youtube.com/vi/s6n5UfaSpWg/0.jpg)](https://www.youtube.com/watch?v=s6n5UfaSpWg)
 
 ## Setting up an Instance on your own Server
 
@@ -60,3 +63,9 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
       ```shell
       docker-compose up -d --build -f docker-compose+traefik.yml
       ```
+
+6. You can now invite the bot to your server and continue like the public instance.
+   You should be able to get an invite link from the discord admin panel, or you can fill in the blank in this one
+   ```
+   https://discord.com/oauth2/authorize?client_id=<YOUR_CLIENT_ID_GOES_HERE>&permissions=3072&scope=bot
+   ```
