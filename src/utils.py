@@ -44,7 +44,11 @@ def with_refresh(preston_instance: Preston, character: Character) -> Preston:
 
 async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
-    channel = await bot.fetch_channel(int(user.callback_channel_id))
+    try:
+        channel = await bot.fetch_channel(int(user.callback_channel_id))
+    except discord.errors.Forbidden:
+        return None
+
     if channel is not None and isinstance(channel, discord.channel.DMChannel):
         await send_background_warning(channel, await channel_warning(user))
     return channel
