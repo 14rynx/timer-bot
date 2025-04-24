@@ -75,10 +75,13 @@ def next_fuel_warning(structure: dict) -> int:
 
 def structure_notification_message(notification: dict, authed_preston: Preston) -> str:
     """Returns a human-readable message of a structure notification"""
-    structure_name = authed_preston.get_op(
-        "get_universe_structures_structure_id",
-        structure_id=str(get_structure_id(notification)),
-    ).get("name", "Unknown")
+    try:
+        structure_name = authed_preston.get_op(
+            "get_universe_structures_structure_id",
+            structure_id=str(get_structure_id(notification)),
+        ).get("name")
+    except Exception:
+        structure_name = f"Structure {get_structure_id(notification)}"
 
     match notification.get('type'):
         case "StructureLostArmor":
