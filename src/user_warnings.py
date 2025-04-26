@@ -19,7 +19,7 @@ async def send_background_warning(channel, warning: tuple[str, str]):
 
     warning_text, log_text = warning
 
-    if log_text in sent_warnings and sent_warnings[log_text] < datetime.now(tz=timezone.utc).timestamp():
+    if log_text in sent_warnings and sent_warnings[log_text] > datetime.now(tz=timezone.utc).timestamp():
         logger.debug(f"Received warning {log_text}, waiting for next window at {sent_warnings[log_text]}")
     else:
         try:
