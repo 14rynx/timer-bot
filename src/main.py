@@ -28,7 +28,7 @@ initialize_database()
 
 # Setup ESI connection
 base_preston = Preston(
-    user_agent="Hangar organizing discord bot by larynx.austrene@gmail.com",
+    user_agent="Structure timer discord bot by <larynx.austrene@gmail.com>",
     client_id=os.environ["CCP_CLIENT_ID"],
     client_secret=os.environ["CCP_SECRET_KEY"],
     callback_url=os.environ["CCP_REDIRECT_URI"],
