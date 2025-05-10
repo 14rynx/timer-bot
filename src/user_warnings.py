@@ -72,10 +72,10 @@ async def structure_permission_warning(character: Character, authed_preston: Pre
 
     warning_text = (
         "### WARNING\n"
-        f"The following character does not have permissions to see structure info: {character_name}\n"
+        f"The following character does not have permissions to see poco info: {character_name}\n"
         f"- If you to not intend to use this character, remove him with `!revoke {character_name}`.\n"
         "- Otherwise, fix your corp permissions in-game. To do that, go to \"Corporation\" -> \"Administration\" -> "
-        "\"Role Management\" -> \"Station Services\" and add the \"Station Manager\" role, then check them with `!info`."
+        "\"Role Management\" -> \"Station Services\" and add the \"Director\" role, then check them with `!info`."
     )
 
     log_text = f"structure_permission_warning for {character}"
@@ -90,7 +90,7 @@ async def structure_corp_warning(character: Character, authed_preston: Preston):
     warning_text = (
         "### WARNING\n"
         "The following character has changed corporation and can thus no "
-        f"longer see structure info of the old corporation: {character_name}.\n"
+        f"longer see poco info of the old corporation: {character_name}.\n"
         "- If you to not intend to use this character, remove him with `!revoke {character_name}`.\n"
         "- If you want to use this character again with the new corporation, `!auth` again.\n"
         "- If you want to use this character again with the old corporation, re-join the old corporation in-game."
@@ -106,7 +106,7 @@ async def structure_other_warning(character: Character, authed_preston: Preston,
 
     warning_text = (
         "### WARNING\n"
-        f"The following character does not have permissions to see structure info: {character_name}\n"
+        f"The following character does not have permissions to see poco info: {character_name}\n"
         f"This is due to the following error: {error_value}\n"
         "There are no specific instructions to fix this error, so you have to try for yourself.\n"
         "- In case you no longer need structure pings, you can remove the character with `!revoke {character_name}`.\n"

@@ -5,7 +5,7 @@ from requests.exceptions import HTTPError, ConnectionError
 from discord.ext import tasks
 
 from models import Character, Structure, Notification
-from structure import structure_notification_message, structure_info, next_fuel_warning, is_structure_notification
+from poco import poco_info, is_poco_notification, poco_notification_message
 from user_warnings import send_background_warning, structure_permission_warning, esi_permission_warning, \
     structure_corp_warning, structure_other_warning
 from utils import with_refresh, get_channel
@@ -98,14 +98,14 @@ async def send_notification_message(notification, user_channel, authed_preston, 
     """For a notification from ESI take action and inform a user if required"""
     notification_id = notification.get("notification_id")
 
-    if not is_structure_notification(notification):
+    if not is_poco_notification(notification):
         return
 
     notif, created = Notification.get_or_create(notification_id=notification_id)
 
     if not notif.sent:
         try:
-            if len(message := structure_notification_message(notification, authed_preston)) > 0:
+            if len(message := poco_notification_message(notification, authed_preston)) > 0:
                 await user_channel.send(message)
                 logger.debug(f"Sent notification to {identifier}")
 
@@ -188,7 +188,6 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
         structure_id=structure.get('structure_id'),
         defaults={
             "last_state": structure.get('state'),
-            "last_fuel_warning": next_fuel_warning(structure),
         },
     )
 
@@ -196,7 +195,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
         try:
             await user_channel.send(
                 f"Structure {structure.get('name')} newly found in state:\n"
-                f"{structure_info(structure)}"
+                f"{poco_info(structure)}"
             )
             logger.debug(f"Sent initial state to user {identifier}")
         except Exception as e:
@@ -208,7 +207,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
             try:
                 await user_channel.send(
                     f"Structure {structure.get('name')} changed state:\n"
-                    f"{structure_info(structure)}"
+                    f"{poco_info(structure)}"
                 )
                 logger.debug(f"Sent state change to user {identifier}")
             except Exception as e:
@@ -216,42 +215,3 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
             else:
                 structure_db.last_state = structure.get("state")
                 structure_db.save()
-
-        current_fuel_warning = next_fuel_warning(structure)
-
-        if structure_db.last_fuel_warning is None:  # Maybe remove this clause?
-            structure_db.last_fuel_warning = current_fuel_warning
-            structure_db.save()
-            return
-
-        elif current_fuel_warning > structure_db.last_fuel_warning:
-            if structure_db.last_fuel_warning == -1:
-                message = f"Structure {structure.get('name')} got initially fueled with:\n{structure_info(structure)}"
-                logger_info = f"initial fuel info to {identifier}."
-            else:
-                message = f"Structure {structure.get('name')} has been refueled:\n{structure_info(structure)}"
-                logger_info = f"refuel info to {identifier}."
-        elif current_fuel_warning < structure_db.last_fuel_warning:
-            state = structure.get('state')
-            if current_fuel_warning == -1:
-                if state in ["anchoring", "anchor_vulnerable"]:
-                    return
-                else:
-                    message = f"Final warning, structure {structure.get('name')} ran out of fuel:\n{structure_info(structure)}"
-                    logger_info = f"fuel empty to {identifier}"
-            else:
-                message = (f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is "
-                           f"running low on fuel:\n{structure_info(structure)}")
-                logger_info = f"fuel warning to {identifier}"
-        else:
-            return
-
-        # Send fuel message and update DB if successful
-        try:
-            await user_channel.send(message)
-            logger.debug(f"Sent {logger_info}")
-        except Exception as e:
-            logger.warning(f"Could not send {logger_info}: {e}")
-        else:
-            structure_db.last_fuel_warning = current_fuel_warning
-            structure_db.save()

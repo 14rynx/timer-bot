@@ -13,7 +13,7 @@ from requests.exceptions import HTTPError
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
-from structure import structure_info
+from poco import poco_info, get_poco_name
 from user_warnings import send_foreground_warning, esi_permission_warning, structure_permission_warning, \
     structure_corp_warning, structure_other_warning, channel_warning
 from utils import lookup, with_refresh, get_channel
@@ -32,7 +32,7 @@ base_preston = Preston(
     client_id=os.environ["CCP_CLIENT_ID"],
     client_secret=os.environ["CCP_SECRET_KEY"],
     callback_url=os.environ["CCP_REDIRECT_URI"],
-    scope="esi-corporations.read_structures.v1 esi-characters.read_notifications.v1 esi-universe.read_structures.v1",
+    scope="esi-planets.read_customs_offices.v1 esi-characters.read_notifications.v1",
     timeout=6,
 )
 
@@ -226,12 +226,12 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
 
 @bot.tree.command(
     name="info",
-    description="Returns the status of all structures linked."
+    description="Returns the status of all pocos linked."
 )
 @command_error_handler
 async def info(interaction: Interaction):
     await interaction.response.defer()
-    structures_info = {}
+    pocos_info = {}
 
     user = User.get_or_none(User.user_id == str(interaction.user.id))
     if user:
@@ -251,14 +251,14 @@ async def info(interaction: Interaction):
             ).get("corporation_id")
 
             # Get structure data and build info for this structure
-            structure_response = authed_preston.get_op(
-                'get_corporations_corporation_id_structures',
+            poco_response = authed_preston.get_op(
+                'get_corporations_corporation_id_custom_offices',
                 corporation_id=corporation_id
             )
 
-            if type(structure_response) is dict:
-                if "error" in structure_response:
-                    match structure_response["error"]:
+            if type(poco_response) is dict:
+                if "error" in poco_response:
+                    match poco_response["error"]:
                         case "Character does not have required role(s)":
                             await send_foreground_warning(
                                 interaction,
@@ -273,23 +273,24 @@ async def info(interaction: Interaction):
                             await send_foreground_warning(
                                 interaction,
                                 await structure_other_warning(
-                                    character, authed_preston, structure_response.get("error", "")
+                                    character, authed_preston, poco_response.get("error", "")
                                 )
                             )
                 else:
-                    logger.error(f"Got an unfamiliar response for {character}: {structure_response}.", exc_info=True)
+                    logger.error(f"Got an unfamiliar response for {character}: {poco_response}.", exc_info=True)
                 continue
 
-            for structure in structure_response:
-                structure_id = structure.get("structure_id")
-                structures_info[structure_id] = structure_info(structure)
+            for poco in poco_response:
+                poco_id = poco.get("office_id")
+                poco_name = get_poco_name(poco_id, authed_preston)
+                pocos_info[poco_id] = poco_info(poco, poco_name)
 
     # Build message with all structure info
     output = "\n"
-    if structures_info:
-        output += "".join(map(str, structures_info.values()))
+    if pocos_info:
+        output += "".join(map(str, pocos_info.values()))
     else:
-        output += "No structures found!\n"
+        output += "No pocos found!\n"
 
     await interaction.followup.send(output)
 

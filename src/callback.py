@@ -5,7 +5,7 @@ from discord.ext import tasks
 from preston import Preston
 
 from models import User, Character, Challenge, Notification
-from structure import is_structure_notification
+from poco import is_poco_notification
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.callback')
@@ -69,7 +69,7 @@ async def callback_server(preston: Preston):
         )
 
         for notification in notifications:
-            if is_structure_notification(notification):
+            if is_poco_notification(notification):
                 notification, created = Notification.get_or_create(
                     notification_id=str(notification.get("notification_id")),
                 )
