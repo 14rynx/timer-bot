@@ -66,10 +66,11 @@ async def notification_pings(action_lock, preston, bot):
                     )
                     logger.warning(f"{character} has no ESI permissions and can not be notified!")
                 else:
-                    logger.error(f"{character} got {exp.response.status_code} response, skipping...")
+                    logger.error(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
             except ConnectionError as exp:
-                logger.warning(f"{character} got {exp.response.status_code} response, skipping...")
+                # Network issue, we are fine with a warning
+                logger.warning(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
 
             try:
@@ -137,10 +138,11 @@ async def status_pings(action_lock, preston, bot):
                     await esi_permission_warning(character, user_channel, preston)
                     logger.warning(f"{character} has no ESI permissions and can not be notified!")
                 else:
-                    logger.error(f"{character} got {exp.response.status_code} response, skipping...")
+                    logger.error(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
             except ConnectionError as exp:
-                logger.warning(f"{character} got {exp.response.status_code} response, skipping...")
+                # Network issue, we are fine with a warning
+                logger.warning(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
 
             try:
