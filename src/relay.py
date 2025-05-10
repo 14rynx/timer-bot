@@ -159,10 +159,21 @@ async def status_pings(action_lock, preston, bot):
                             await structure_permission_warning(character, authed_preston),
                         )
                     case "Character is not in the corporation":
-                        await send_background_warning(
-                            user_channel,
-                            await structure_corp_warning(character, authed_preston),
-                        )
+                        # See if character changed corporation and update
+                        character_new_corporation = preston.get_op(
+                            "get_characters_character_id",
+                            character_id=character.character_id
+                        ).get("corporation_id")
+
+                        # Send warning if corp was correct, else update corp
+                        if character.corporation_id == character_new_corporation:
+                            await send_background_warning(
+                                user_channel,
+                                await structure_corp_warning(character, authed_preston),
+                            )
+                        else:
+                            character.corporation_id = character_new_corporation
+                            character.save()
                     case _:
                         await send_background_warning(
                             user_channel,
