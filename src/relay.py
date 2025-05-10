@@ -59,17 +59,22 @@ async def notification_pings(action_lock, preston, bot):
             try:
                 authed_preston = with_refresh(preston, character)
             except HTTPError as exp:
-                if exp.response.status_code == 401:
+                if exp.response.status_code == 400:
                     await send_background_warning(
                         user_channel,
                         await esi_permission_warning(character, preston)
                     )
-                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
+                elif exp.response.status_code == 401:
+                    await send_background_warning(
+                        user_channel,
+                        await esi_permission_warning(character, preston)
+                    )
                 else:
-                    logger.error(f"{character} got {exp.response.status_code} response, skipping...")
+                    logger.error(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
             except ConnectionError as exp:
-                logger.warning(f"{character} got {exp.response.status_code} response, skipping...")
+                # Network issue, we are fine with a warning
+                logger.warning(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
 
             try:
@@ -134,13 +139,13 @@ async def status_pings(action_lock, preston, bot):
                 authed_preston = with_refresh(preston, character)
             except HTTPError as exp:
                 if exp.response.status_code == 403:
-                    await esi_permission_warning(character, user_channel, preston)
-                    logger.warning(f"{character} has no ESI permissions and can not be notified!")
+                    await esi_permission_warning(character, preston)
                 else:
-                    logger.error(f"{character} got {exp.response.status_code} response, skipping...")
+                    logger.error(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
             except ConnectionError as exp:
-                logger.warning(f"{character} got {exp.response.status_code} response, skipping...")
+                # Network issue, we are fine with a warning
+                logger.warning(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
                 continue
 
             try:
