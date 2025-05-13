@@ -8,7 +8,7 @@ from models import Character, Structure, Notification
 from structure import structure_notification_message, structure_info, next_fuel_warning, is_structure_notification
 from user_warnings import send_background_warning, structure_permission_warning, esi_permission_warning, \
     structure_corp_warning, structure_other_warning
-from utils import with_refresh, get_channel
+from utils import get_channel
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
@@ -57,7 +57,7 @@ async def notification_pings(action_lock, preston, bot):
                 return
 
             try:
-                authed_preston = with_refresh(preston, character)
+                authed_preston = preston.authenticate_from_token(character.token)
             except HTTPError as exp:
                 if exp.response.status_code == 400:
                     await send_background_warning(
@@ -136,7 +136,7 @@ async def status_pings(action_lock, preston, bot):
                 continue
 
             try:
-                authed_preston = with_refresh(preston, character)
+                authed_preston = preston.authenticate_from_token(character.token)
             except HTTPError as exp:
                 if exp.response.status_code == 400:
                     await send_background_warning(

@@ -16,7 +16,7 @@ async def callback_server(preston: Preston):
 
     @routes.get('/')
     async def hello(request):
-        return web.Response(text="Hangar Script Callback Server")
+        return web.Response(text="Timer Bot Callback Server (https://github.com/14rynx/timer-bot)")
 
     @routes.get('/callback/')
     async def callback(request):
@@ -40,10 +40,10 @@ async def callback_server(preston: Preston):
 
         # Get character data
         character_data = authed_preston.whoami()
-        character_id = character_data["CharacterID"]
-        character_name = character_data["CharacterName"]
+        character_id = character_data["character_id"]
+        character_name = character_data["character_name"]
 
-        corporation_id = authed_preston.get_op(
+        corporation_id = preston.get_op(
             'get_characters_character_id',
             character_id=character_id
         ).get("corporation_id")

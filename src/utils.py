@@ -34,14 +34,6 @@ async def lookup(preston: Preston, string: str, return_type: str) -> int:
             raise ValueError("Could not parse that character!")
 
 
-def with_refresh(preston_instance: Preston, character: Character) -> Preston:
-    """Returns a similar Preston instance with the specified refresh token."""
-    new_kwargs = dict(preston_instance._kwargs)
-    new_kwargs["refresh_token"] = character.token
-    new_kwargs["access_token"] = None
-    return Preston(**new_kwargs)
-
-
 async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
     try:
