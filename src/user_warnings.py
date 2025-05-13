@@ -68,7 +68,7 @@ async def esi_permission_warning(character: Character, preston: Preston):
 async def structure_permission_warning(character: Character, authed_preston: Preston):
     """A warning to users to fix in corporation permissions."""
 
-    character_name = authed_preston.whoami()["CharacterName"]
+    character_name = authed_preston.whoami()["character_name"]
 
     warning_text = (
         "### WARNING\n"
@@ -85,7 +85,7 @@ async def structure_permission_warning(character: Character, authed_preston: Pre
 
 async def structure_corp_warning(character: Character, authed_preston: Preston):
     """A warning to users who have changed corp."""
-    character_name = authed_preston.whoami()["CharacterName"]
+    character_name = authed_preston.whoami()["character_name"]
 
     warning_text = (
         "### WARNING\n"
@@ -102,7 +102,7 @@ async def structure_corp_warning(character: Character, authed_preston: Preston):
 
 
 async def structure_other_warning(character: Character, authed_preston: Preston, error_value: str):
-    character_name = authed_preston.whoami()["CharacterName"]
+    character_name = authed_preston.whoami()["character_name"]
 
     warning_text = (
         "### WARNING\n"

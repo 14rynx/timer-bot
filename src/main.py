@@ -16,7 +16,7 @@ from relay import notification_pings, status_pings
 from structure import structure_info
 from user_warnings import send_foreground_warning, esi_permission_warning, structure_permission_warning, \
     structure_corp_warning, structure_other_warning, channel_warning
-from utils import lookup, with_refresh, get_channel
+from utils import lookup, get_channel
 
 # Configure the logger
 logger = logging.getLogger('discord.timer')
@@ -26,6 +26,12 @@ logger.setLevel(log_level)
 # Initialize the database
 initialize_database()
 
+def refresh_token_callback(preston):
+    character_id = preston.whoami()["character_id"]
+    character = Character.get(character_id=character_id)
+    character.token = preston.refresh_token
+    character.save()
+
 # Setup ESI connection
 base_preston = Preston(
     user_agent="Structure timer discord bot by <larynx.austrene@gmail.com>",
@@ -33,6 +39,7 @@ base_preston = Preston(
     client_secret=os.environ["CCP_SECRET_KEY"],
     callback_url=os.environ["CCP_REDIRECT_URI"],
     scope="esi-corporations.read_structures.v1 esi-characters.read_notifications.v1 esi-universe.read_structures.v1",
+    refresh_token_callback=refresh_token_callback,
     timeout=6,
 )
 
@@ -107,7 +114,7 @@ async def auth(interaction: Interaction):
     Challenge.delete().where(Challenge.user == user).execute()
     Challenge.create(user=user, state=secret_state)
 
-    full_link = f"{base_preston.get_authorize_url()}&state={secret_state}"
+    full_link = base_preston.get_authorize_url(secret_state)
     await interaction.response.send_message(
         f"Use this [authentication link]({full_link}) to authorize your characters.", ephemeral=True
     )
@@ -152,7 +159,7 @@ async def characters(interaction: Interaction):
     if user:
         for character in user.characters:
             try:
-                authed_preston = with_refresh(base_preston, character)
+                authed_preston = base_preston.authenticate_from_token(character.token)
             except HTTPError as exp:
                 if exp.response.status_code == 401:
                     await send_foreground_warning(
@@ -163,7 +170,7 @@ async def characters(interaction: Interaction):
                 else:
                     raise
 
-            character_name = authed_preston.whoami()['CharacterName']
+            character_name = authed_preston.whoami()['character_name']
             character_names.append(f"- {character_name}")
 
     if not character_names:
@@ -237,7 +244,7 @@ async def info(interaction: Interaction):
     if user:
         for character in user.characters:
             try:
-                authed_preston = with_refresh(base_preston, character)
+                authed_preston = base_preston.authenticate_from_token(character.token)
             except HTTPError as exp:
                 if exp.response.status_code == 401:
                     await send_foreground_warning(interaction, esi_permission_warning(character, base_preston))
