@@ -321,7 +321,7 @@ async def action(interaction: Interaction, text: str):
     for user in User.select():
         try:
             channel = await get_channel(user, bot)
-            if channel.id not in used_channels:
+            if channel is not None and channel.id not in used_channels:
                 await channel.send(text)
                 used_channels.add(channel.id)
         except discord.errors.Forbidden:
