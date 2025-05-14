@@ -73,13 +73,13 @@ def command_error_handler(func):
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
         interaction, *arguments = args
-        logger.info(f"{interaction.user.name} used !{func.__name__} {arguments} {kwargs}")
+        logger.info(f"{interaction.user.name} used /{func.__name__} {arguments} {kwargs}")
 
         try:
             return await func(*args, **kwargs)
         except Exception as e:
-            logger.error(f"Error in !{func.__name__} command: {e}", exc_info=True)
-            await interaction.response.send_message(f"An error occurred in !{func.__name__}.")
+            logger.error(f"Error in /{func.__name__} command: {e}", exc_info=True)
+            return None
 
     return wrapper
 
