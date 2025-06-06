@@ -2,13 +2,12 @@ import logging
 from datetime import datetime, timezone, timedelta
 from json import JSONDecodeError
 
+import discord
 from discord import Interaction
+from discord.ext import tasks
 from preston import Preston
 
 from models import Character, User
-from utils import get_channel
-
-from discord.ext import tasks
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.warnings')
@@ -146,8 +145,10 @@ async def ping_no_auth(action_lock, bot):
         try:
             for user in User.select():
                 if not user.characters.exists():
-                    if (user_channel := await get_channel(user, bot)) is None:
-                        return
+                    try:
+                        user_channel = await bot.fetch_channel(int(user.callback_channel_id))
+                    except discord.errors.Forbidden:
+                        continue
 
                     warning_text = (
                         "### WARNING\n"
@@ -160,8 +161,9 @@ async def ping_no_auth(action_lock, bot):
                     try:
                         user_channel.send(warning_text)
                     except Exception as e:
-                        pass
                         # There is nothing to salvage for this user anyway
+                        continue
+
         except Exception as e:
 
             logger.error(f"Error while trying to notify users without auth: {e}")

@@ -1,7 +1,6 @@
 import discord
 from preston import Preston
 
-from models import Character
 from user_warnings import channel_warning, send_background_warning
 
 
