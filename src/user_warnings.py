@@ -51,14 +51,14 @@ async def esi_permission_warning(character: Character, preston: Preston):
 
         warning_text = (
             "### WARNING\n"
-            f"<@{character.user.id}>, the following character does not have permissions to fetch data from ESI: {character_name}\n"
+            f"<@{character.user.user_id}>, the following character does not have permissions to fetch data from ESI: {character_name}\n"
             "- If you to not intend to use this character anymore, remove him with `/revoke {character_name}`.\n"
             "- Otherwise re-authenticate with `/auth`."
         )
     except (ValueError, KeyError, JSONDecodeError):
         warning_text = (
             "### WARNING\n"
-            f"<@{character.user.id}>, your characters do not have permissions to fetch data from ESI.\n"
+            f"<@{character.user.user_id}>, your characters do not have permissions to fetch data from ESI.\n"
             "- If you to not intend to use this bot anymore, remove your characters with `/revoke`.\n"
             "- Otherwise re-authenticate with `/auth`."
         )
@@ -75,7 +75,7 @@ async def structure_permission_warning(character: Character, authed_preston: Pre
 
     warning_text = (
         "### WARNING\n"
-        f"<@{character.user.id}>, The following character does not have permissions to see structure info: {character_name}\n"
+        f"<@{character.user.user_id}>, The following character does not have permissions to see structure info: {character_name}\n"
         f"- If you to not intend to use this character, remove him with `/revoke {character_name}`.\n"
         "- Otherwise, fix your corp permissions in-game. To do that, go to \"Corporation\" -> \"Administration\" -> "
         "\"Role Management\" -> \"Station Services\" and add the \"Station Manager\" role, then check them with `/info`."
@@ -92,7 +92,7 @@ async def structure_corp_warning(character: Character, authed_preston: Preston):
 
     warning_text = (
         "### WARNING\n"
-        f"<@{character.user.id}>, the following character has changed corporation and can thus no "
+        f"<@{character.user.user_id}>, the following character has changed corporation and can thus no "
         f"longer see structure info of the old corporation: {character_name}.\n"
         "- If you to not intend to use this character, remove him with `/revoke {character_name}`.\n"
         "- If you want to use this character again with the new corporation, `/auth` again.\n"
@@ -109,7 +109,7 @@ async def structure_other_warning(character: Character, authed_preston: Preston,
 
     warning_text = (
         "### WARNING\n"
-        f"<@{character.user.id}>, the following character does not have permissions to see structure info: {character_name}\n"
+        f"<@{character.user.user_id}>, the following character does not have permissions to see structure info: {character_name}\n"
         f"This is due to the following error: {error_value}\n"
         "There are no specific instructions to fix this error, so you have to try for yourself.\n"
         "- In case you no longer need structure pings, you can remove the character with `/revoke {character_name}`.\n"
@@ -125,7 +125,7 @@ async def channel_warning(user):
     """A warning that the channel might not be reachable anymore"""
     warning_text = (
         "### WARNING\n"
-        f"<@{user.id}>, the channel you are using for timer-bot callbacks is a private channel which the bot might eventually no longer "
+        f"<@{user.user_id}>, the channel you are using for timer-bot callbacks is a private channel which the bot might eventually no longer "
         "be able to reach. Please use a channel in a server as your callback location."
     )
 
@@ -152,7 +152,7 @@ async def ping_no_auth(action_lock, bot):
 
                     warning_text = (
                         "### WARNING\n"
-                        f"<@{user.id}>, your discord account is linked to timer-bot, but you have not authorized any characters.\n"
+                        f"<@{user.user_id}>, your discord account is linked to timer-bot, but you have not authorized any characters.\n"
                         f"This means you will not get any notifications about reinforced structures or fuel"
                         f"- If you to not intend to use this bot anymore, write `/revoke` to de-register.\n"
                         f"- Otherwise add some character with `/auth`"
