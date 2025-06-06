@@ -159,7 +159,7 @@ async def ping_no_auth(action_lock, bot):
                     )
 
                     try:
-                        user_channel.send(warning_text)
+                        await user_channel.send(warning_text)
                     except Exception as e:
                         # There is nothing to salvage for this user anyway
                         continue
