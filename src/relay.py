@@ -7,7 +7,7 @@ from discord.ext import tasks
 from models import Character, Structure, Notification
 from structure import structure_notification_message, structure_info, next_fuel_warning, is_structure_notification
 from user_warnings import send_background_warning, structure_permission_warning, esi_permission_warning, \
-    structure_corp_warning, structure_other_warning
+    structure_corp_warning, structure_other_warning, no_channel_anymore_warning
 from utils import get_channel
 
 # Constants
@@ -53,7 +53,7 @@ async def notification_pings(action_lock, preston, bot):
         async for character in schedule_characters(action_lock, notification_phase, NOTIFICATION_PHASES):
 
             if (user_channel := await get_channel(character.user, bot)) is None:
-                logger.info(f"{character} has no valid channel and can not be notified, skipping...")
+                await no_channel_anymore_warning(character)
                 return
 
             try:
@@ -132,7 +132,7 @@ async def status_pings(action_lock, preston, bot):
         async for character in schedule_characters(action_lock, status_phase, STATUS_PHASES):
 
             if (user_channel := await get_channel(character.user, bot)) is None:
-                logger.info(f"{character} has no valid channel and can not be notified, skipping...")
+                await no_channel_anymore_warning(character)
                 continue
 
             try:

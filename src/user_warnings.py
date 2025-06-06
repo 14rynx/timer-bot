@@ -11,6 +11,7 @@ from models import Character, User
 logger = logging.getLogger('discord.timer.warnings')
 
 sent_warnings = {}
+no_channel_characters = set()
 
 
 async def send_background_warning(channel, warning: tuple[str, str]):
@@ -128,3 +129,9 @@ async def channel_warning(user):
 
     log_text = f"channel_warning for {user}"
     return warning_text, log_text
+
+
+async def no_channel_anymore_warning(character):
+    if character not in no_channel_characters:
+        logger.info(f"{character} has no valid channel and can not be notified, skipping...")
+        no_channel_characters.add(character)
