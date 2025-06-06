@@ -15,7 +15,7 @@ from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings
 from structure import structure_info
 from user_warnings import send_foreground_warning, esi_permission_warning, structure_permission_warning, \
-    structure_corp_warning, structure_other_warning, channel_warning
+    structure_corp_warning, structure_other_warning, channel_warning, ping_no_auth
 from utils import lookup, get_channel
 
 # Configure the logger
@@ -88,8 +88,11 @@ def command_error_handler(func):
 async def on_ready():
     # Setup Lock for actions
     action_lock = asyncio.Lock()
+
+    # Start background tasks
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
+    ping_no_auth.start(action_lock, bot)
     callback_server.start(base_preston)
 
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
