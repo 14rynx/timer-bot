@@ -72,7 +72,7 @@ def get_poco_name(notification: dict, preston: Preston) -> str:
             planet_id = line.split(" ")[2]
 
     if planet_id is not None:
-        return preston.get_op("get_universe_plantes_planet_id", planet_id=planet_id).get("name")
+        return preston.get_op("get_universe_planets_planet_id", planet_id=planet_id).get("name")
     return "Unknown Poco"
 
 
