@@ -148,7 +148,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
                 logger.debug(f"Sent poco notification to {identifier}")
 
         except Exception as e:
-            logger.warning(f"Could not send poco notification to {identifier}: {e}")
+            logger.error(f"Could not send poco notification to {identifier}: {e}", exc_info=True)
         else:
             notif.sent = True
             notif.save()
