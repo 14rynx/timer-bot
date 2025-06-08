@@ -93,7 +93,6 @@ def get_poco_name(notification: dict, preston: Preston) -> str:
     """returns a structure id from the notification or none if no structure_id can be found"""
     planet_id = None
     for line in notification.get("text").split("\n"):
-        logger.debug(f"line: {line}")
         if "planetID:" in line:
             planet_id = line.split(" ")[1]
 
