@@ -1,7 +1,7 @@
 import discord
 from preston import Preston
 
-from user_warnings import channel_warning, send_background_warning
+from warning import channel_warning, send_background_warning
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:

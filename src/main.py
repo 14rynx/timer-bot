@@ -12,10 +12,10 @@ from requests.exceptions import HTTPError
 
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
-from relay import notification_pings, status_pings
-from structure import structure_info
-from user_warnings import send_foreground_warning, esi_permission_warning, structure_permission_warning, \
-    structure_corp_warning, structure_other_warning, channel_warning, ping_no_auth
+from relay import notification_pings, status_pings, no_auth_pings
+from structure import structure_info_text
+from warning import send_foreground_warning
+from warning import esi_permission_warning, structure_permission_warning, structure_corp_warning, structure_other_warning, channel_warning
 from utils import lookup, get_channel
 
 # Configure the logger
@@ -92,7 +92,7 @@ async def on_ready():
     # Start background tasks
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
-    ping_no_auth.start(action_lock, bot)
+    no_auth_pings.start(action_lock, bot)
     callback_server.start(base_preston)
 
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
@@ -292,7 +292,7 @@ async def info(interaction: Interaction):
 
             for structure in structure_response:
                 structure_id = structure.get("structure_id")
-                structures_info[structure_id] = structure_info(structure)
+                structures_info[structure_id] = structure_info_text(structure)
 
     # Build message with all structure info
     output = "\n"

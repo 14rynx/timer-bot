@@ -1,6 +1,7 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
-from preston import Preston
+from models import Structure
 
 # Mapping of EVE states to human-readable states
 state_mapping = {
@@ -22,6 +23,9 @@ state_mapping = {
 # Days when a fuel warning is sent
 fuel_warnings = [30, 15, 7, 3, 2, 1, 0]
 
+# Configure the logger
+logger = logging.getLogger('discord.timer.structure')
+
 
 def to_datetime(time_string: str | None) -> datetime | None:
     if time_string is None:
@@ -29,7 +33,7 @@ def to_datetime(time_string: str | None) -> datetime | None:
     return datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def structure_info(structure: dict) -> str:
+def structure_info_text(structure: dict) -> str:
     """Builds a human-readable message containing the state of a structure"""
     state = structure.get('state')
     structure_name = structure.get('name')
@@ -73,64 +77,77 @@ def next_fuel_warning(structure: dict) -> int:
     return -1
 
 
-def structure_notification_message(notification: dict, authed_preston: Preston) -> str:
-    """Returns a human-readable message of a structure notification"""
-    try:
-        structure_name = authed_preston.get_op(
-            "get_universe_structures_structure_id",
-            structure_id=str(get_structure_id(notification)),
-        ).get("name")
-    except Exception:
-        structure_name = f"Structure {get_structure_id(notification)}"
+async def send_structure_message(structure, user_channel, identifier="<no identifier>"):
+    """For a structure state if there are any changes, take action and inform a user"""
 
-    match notification.get('type'):
-        case "StructureLostArmor":
-            return f"@everyone Structure {structure_name} has lost it's armor!\n"
-        case "StructureLostShields":
-            return f"@everyone Structure {structure_name} has lost it's shields!\n"
-        case "StructureUnanchoring":
-            return f"@everyone Structure {structure_name} is now unanchoring!\n"
-        case "StructureUnderAttack":
-            # Parse attacker info
-            character_id = get_attacker_character_id(notification)
-            if character_id is not None:
-                character_name = authed_preston.get_op(
-                    'get_characters_character_id',
-                    character_id=str(character_id)
-                ).get("name", "Unknown")
-                attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
+    structure_db, created = Structure.get_or_create(
+        structure_id=structure.get('structure_id'),
+        defaults={
+            "last_state": structure.get('state'),
+            "last_fuel_warning": next_fuel_warning(structure),
+        },
+    )
+
+    if created:
+        try:
+            await user_channel.send(
+                f"Structure {structure.get('name')} newly found in state:\n"
+                f"{structure_info_text(structure)}"
+            )
+            logger.debug(f"Sent initial state to user {identifier}")
+        except Exception as e:
+            logger.warning(f"Could not send initial state to {identifier}: {e}")
+
+    else:
+        # Send message based on state
+        if structure_db.last_state != structure.get("state"):
+            try:
+                await user_channel.send(
+                    f"Structure {structure.get('name')} changed state:\n"
+                    f"{structure_info_text(structure)}"
+                )
+                logger.debug(f"Sent state change to user {identifier}")
+            except Exception as e:
+                logger.warning(f"Could not send state change to user {identifier}: {e}")
             else:
-                attribution = ""
-            return f"@everyone Structure {structure_name} is under attack{attribution}!\n"
-        case "StructureWentHighPower":
-            return f"@everyone Structure {structure_name} is now high power!\n"
-        case "StructureWentLowPower":
-            return f"@everyone Structure {structure_name} is now low power!\n"
-        case "StructureOnline":
-            return f"@everyone Structure {structure_name} went online!\n"
-        case _:
-            return ""
+                structure_db.last_state = structure.get("state")
+                structure_db.save()
 
+        current_fuel_warning = next_fuel_warning(structure)
 
-def get_structure_id(notification: dict) -> int | None:
-    """returns a structure id from the notification or none if no structure_id can be found"""
-    structure_id = None
-    for line in notification.get("text").split("\n"):
-        if "structureID:" in line:
-            structure_id = int(line.split(" ")[2])
-    return structure_id
+        if structure_db.last_fuel_warning is None:  # Maybe remove this clause?
+            structure_db.last_fuel_warning = current_fuel_warning
+            structure_db.save()
+            return
 
+        elif current_fuel_warning > structure_db.last_fuel_warning:
+            if structure_db.last_fuel_warning == -1:
+                message = f"Structure {structure.get('name')} got initially fueled with:\n{structure_info_text(structure)}"
+                logger_info = f"initial fuel info to {identifier}."
+            else:
+                message = f"Structure {structure.get('name')} has been refueled:\n{structure_info_text(structure)}"
+                logger_info = f"refuel info to {identifier}."
+        elif current_fuel_warning < structure_db.last_fuel_warning:
+            state = structure.get('state')
+            if current_fuel_warning == -1:
+                if state in ["anchoring", "anchor_vulnerable"]:
+                    return
+                else:
+                    message = f"Final warning, structure {structure.get('name')} ran out of fuel:\n{structure_info_text(structure)}"
+                    logger_info = f"fuel empty to {identifier}"
+            else:
+                message = (f"{structure_db.last_fuel_warning}-day warning, structure {structure.get('name')} is "
+                           f"running low on fuel:\n{structure_info_text(structure)}")
+                logger_info = f"fuel warning to {identifier}"
+        else:
+            return
 
-def get_attacker_character_id(notification: dict) -> int | None:
-    """returns a character_id from the notification or None if no character_id can be found"""
-    character_id = None
-    for line in notification.get("text").split("\n"):
-        if "charID:" in line:
-            character_id = int(line.split(" ")[1])
-    return character_id
-
-
-def is_structure_notification(notification: dict) -> bool:
-    """returns true if a notification is about a structure"""
-    # All structure notifications start with Structure... so we can use that
-    return "Structure" in notification.get('type')
+        # Send fuel message and update DB if successful
+        try:
+            await user_channel.send(message)
+            logger.debug(f"Sent {logger_info}")
+        except Exception as e:
+            logger.warning(f"Could not send {logger_info}: {e}")
+        else:
+            structure_db.last_fuel_warning = current_fuel_warning
+            structure_db.save()

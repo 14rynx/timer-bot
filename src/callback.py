@@ -5,10 +5,11 @@ from discord.ext import tasks
 from preston import Preston
 
 from models import User, Character, Challenge, Notification
-from structure import is_structure_notification
+from notification import is_structure_notification
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.callback')
+
 
 @tasks.loop()
 async def callback_server(preston: Preston):

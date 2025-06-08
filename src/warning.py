@@ -2,12 +2,10 @@ import logging
 from datetime import datetime, timezone, timedelta
 from json import JSONDecodeError
 
-import discord
 from discord import Interaction
-from discord.ext import tasks
 from preston import Preston
 
-from models import Character, User
+from models import Character
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.warnings')
@@ -133,37 +131,75 @@ async def channel_warning(user):
     return warning_text, log_text
 
 
-async def no_channel_anymore_warning(character):
+async def no_channel_anymore_log(character):
     if character not in no_channel_characters:
         logger.info(f"{character} has no valid channel and can not be notified, skipping...")
         no_channel_characters.add(character)
 
 
-@tasks.loop(hours=42)
-async def ping_no_auth(action_lock, bot):
-    async with action_lock:
-        try:
-            for user in User.select():
-                if not user.characters.exists():
-                    try:
-                        user_channel = await bot.fetch_channel(int(user.callback_channel_id))
-                    except discord.errors.Forbidden:
-                        continue
+async def handle_auth_error(character, channel, preston, exception):
+    if exception.response is not None:
+        if exception.response.status_code == 400:
+            await send_background_warning(
+                channel,
+                await esi_permission_warning(character, preston)
+            )
+        elif exception.response.status_code == 401:
+            await send_background_warning(
+                channel,
+                await esi_permission_warning(character, preston)
+            )
+        else:
+            logger.error(
+                f"{character} got {exception.response.status_code} response {exception.response.text}, skipping..."
+            )
+    else:
+        logger.error(
+            f"{character} encountered HTTPError with no response attached when trying to authenticate: {exception}")
 
-                    warning_text = (
-                        "### WARNING\n"
-                        f"<@{user.user_id}>, your discord account is linked to timer-bot, but you have not authorized any characters.\n"
-                        f"This means you will not get any notifications about reinforced structures or fuel"
-                        f"- If you to not intend to use this bot anymore, write `/revoke` to de-register.\n"
-                        f"- Otherwise add some character with `/auth`"
+
+async def handle_structure_error(character, channel, authed_preston, exception):
+    if exception.response is not None:
+        response_content = exception.response.json()
+        match response_content.get("error", ""):
+            case "Character does not have required role(s)":
+                await send_background_warning(
+                    channel,
+                    await structure_permission_warning(character, authed_preston),
+                )
+            case "Character is not in the corporation":
+                # See if character changed corporation and update
+                character_new_corporation = authed_preston.get_op(
+                    "get_characters_character_id",
+                    character_id=character.character_id
+                ).get("corporation_id")
+
+                # Send warning if corp was correct, else update corp
+                if character.corporation_id == character_new_corporation:
+                    await send_background_warning(
+                        channel,
+                        await structure_corp_warning(character, authed_preston),
                     )
+                else:
+                    character.corporation_id = character_new_corporation
+                    character.save()
+            case _:
+                await send_background_warning(
+                    channel,
+                    await structure_other_warning(
+                        character, authed_preston, response_content.get("error", "")
+                    ),
+                )
 
-                    try:
-                        await user_channel.send(warning_text)
-                    except Exception as e:
-                        # There is nothing to salvage for this user anyway
-                        continue
+    else:
+        logger.warning(
+            f"{character} encountered HTTPError with no response when trying to fetch structure info: {exception}")
 
-        except Exception as e:
 
-            logger.error(f"Error while trying to notify users without auth: {e}")
+async def handle_notification_error(character, exception):
+    if exception.response is not None:
+        logger.warning(
+            f"{character} got a HTTPError with code {exception.response.status_code} and text {exception.response.text}, skipping..."
+        )
+    else:
+        logger.warning(f"{character} encountered HTTPError with no response: {exception}")
