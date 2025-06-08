@@ -8,6 +8,7 @@ from models import Notification
 logger = logging.getLogger('discord.timer.notification')
 logger.setLevel(logging.DEBUG)
 
+
 def get_structure_id(notification: dict) -> int | None:
     """returns a structure id from the notification or none if no structure_id can be found"""
     structure_id = None
@@ -23,7 +24,23 @@ def get_attacker_character_id(notification: dict) -> int | None:
     for line in notification.get("text").split("\n"):
         if "charID:" in line:
             character_id = int(line.split(" ")[1])
+        if "aggressorID:" in line:
+            character_id = int(line.split(" ")[1])
     return character_id
+
+
+def make_attribution(notification: dict, preston: Preston) -> str:
+    # Parse attacker info
+    character_id = get_attacker_character_id(notification)
+    if character_id is not None:
+        character_name = preston.get_op(
+            'get_characters_character_id',
+            character_id=str(character_id)
+        ).get("name", "Unknown")
+        attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
+    else:
+        attribution = ""
+    return attribution
 
 
 def structure_notification_text(notification: dict, authed_preston: Preston) -> str:
@@ -44,17 +61,7 @@ def structure_notification_text(notification: dict, authed_preston: Preston) -> 
         case "StructureUnanchoring":
             return f"@everyone Structure {structure_name} is now unanchoring!\n"
         case "StructureUnderAttack":
-            # Parse attacker info
-            character_id = get_attacker_character_id(notification)
-            if character_id is not None:
-                character_name = authed_preston.get_op(
-                    'get_characters_character_id',
-                    character_id=str(character_id)
-                ).get("name", "Unknown")
-                attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
-            else:
-                attribution = ""
-            return f"@everyone Structure {structure_name} is under attack{attribution}!\n"
+            return f"@everyone Structure {structure_name} is under attack{make_attribution(notification, authed_preston)}!\n"
         case "StructureWentHighPower":
             return f"@everyone Structure {structure_name} is now high power!\n"
         case "StructureWentLowPower":
@@ -64,13 +71,14 @@ def structure_notification_text(notification: dict, authed_preston: Preston) -> 
         case _:
             return ""
 
+
 def get_poco_name(notification: dict, preston: Preston) -> str:
     """returns a structure id from the notification or none if no structure_id can be found"""
     planet_id = None
     for line in notification.get("text").split("\n"):
         logger.debug(f"line: {line}")
         if "planetID:" in line:
-            planet_id = line.split(" ")[2]
+            planet_id = line.split(" ")[1]
 
     if planet_id is not None:
         return preston.get_op("get_universe_planets_planet_id", planet_id=planet_id).get("name")
@@ -82,19 +90,9 @@ def poco_notification_text(notification: dict, preston: Preston) -> str:
 
     match notification.get('type'):
         case "OrbitalAttacked":
-            # Parse attacker info
-            character_id = get_attacker_character_id(notification)
-            if character_id is not None:
-                character_name = preston.get_op(
-                    'get_characters_character_id',
-                    character_id=str(character_id)
-                ).get("name", "Unknown")
-                attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
-            else:
-                attribution = ""
-            return f"@everyone {get_poco_name(notification, preston)} is under attack{attribution}!\n"
+            return f"@everyone {get_poco_name(notification, preston)} is under attack{make_attribution(notification, preston)}!\n"
         case "OrbitalReinforced":
-            return f"@everyone {get_poco_name(notification, preston)} has ben reinforced!\n"
+            return f"@everyone {get_poco_name(notification, preston)} has ben reinforced{make_attribution(notification, preston)}!\n"
         case _:
             return ""
 
@@ -103,6 +101,7 @@ def is_poco_notification(notification: dict) -> bool:
     """returns true if a notification is about a structure"""
     # All structure notifications start with Structure... so we can use that
     return "Orbital" in notification.get('type')
+
 
 def is_structure_notification(notification: dict) -> bool:
     """returns true if a notification is about a structure"""
