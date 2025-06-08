@@ -141,17 +141,17 @@ async def send_notification_message(notification, user_channel, authed_preston, 
                 notif.sent = True
                 notif.save()
     elif is_poco_notification(notification):
-        if not notif.sent:
-            try:
-                if len(message := poco_notification_text(notification, authed_preston)) > 0:
-                    # await user_channel.send(message) # Not used for now
-                    logger.debug(f"Sent poco notification to {identifier}")
+        # if not notif.sent:
+        try:
+            if len(message := poco_notification_text(notification, authed_preston)) > 0:
+                # await user_channel.send(message) # Not used for now
+                logger.debug(f"Sent poco notification to {identifier}")
 
-            except Exception as e:
-                logger.warning(f"Could not send poco notification to {identifier}: {e}")
-            else:
-                notif.sent = True
-                notif.save()
+        except Exception as e:
+            logger.warning(f"Could not send poco notification to {identifier}: {e}")
+        else:
+            notif.sent = True
+            notif.save()
     else:
         if not notif.sent:
             notif.sent = True
