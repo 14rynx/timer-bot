@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from preston import Preston
 
@@ -11,22 +12,20 @@ logger.setLevel(logging.DEBUG)
 
 def get_structure_id(notification: dict) -> int | None:
     """returns a structure id from the notification or none if no structure_id can be found"""
-    structure_id = None
     for line in notification.get("text").split("\n"):
         if "structureID:" in line:
-            structure_id = int(line.split(" ")[2])
-    return structure_id
+            return int(line.split(" ")[2])
+    return None
 
 
 def get_attacker_character_id(notification: dict) -> int | None:
     """returns a character_id from the notification or None if no character_id can be found"""
-    character_id = None
     for line in notification.get("text").split("\n"):
         if "charID:" in line:
-            character_id = int(line.split(" ")[1])
+            return int(line.split(" ")[1])
         if "aggressorID:" in line:
-            character_id = int(line.split(" ")[1])
-    return character_id
+            return int(line.split(" ")[1])
+    return None
 
 
 def make_attribution(notification: dict, preston: Preston) -> str:
@@ -41,6 +40,20 @@ def make_attribution(notification: dict, preston: Preston) -> str:
     else:
         attribution = ""
     return attribution
+
+
+def get_reinforce_exit_time(notification: dict) -> datetime | None:
+    """returns a character_id from the notification or None if no character_id can be found"""
+    for line in notification.get("text").split("\n"):
+        if "reinforceExitTime:" in line:
+            timestamp = int(line.split(" ")[1])
+            return datetime.fromtimestamp(timestamp, timezone.utc)
+    return None
+
+
+def poco_timer_text(notification: dict) -> str:
+    state_expires = get_reinforce_exit_time(notification)
+    return f"**Timer:** <t:{int(state_expires.timestamp())}> (<t:{int(state_expires.timestamp())}:R>) ({state_expires} ET)\n"
 
 
 def structure_notification_text(notification: dict, authed_preston: Preston) -> str:
@@ -92,7 +105,7 @@ def poco_notification_text(notification: dict, preston: Preston) -> str:
         case "OrbitalAttacked":
             return f"@everyone {get_poco_name(notification, preston)} is under attack{make_attribution(notification, preston)}!\n"
         case "OrbitalReinforced":
-            return f"@everyone {get_poco_name(notification, preston)} has ben reinforced{make_attribution(notification, preston)}!\n"
+            return f"@everyone {get_poco_name(notification, preston)} has ben reinforced{make_attribution(notification, preston)}!\n{poco_timer_text(notification)}\n"
         case _:
             return ""
 
