@@ -51,7 +51,7 @@ def get_reinforce_exit_time(notification: dict) -> datetime | None:
             # FILETIME starts from January 1, 1601
             # There are 10,000,000 intervals in one second
             unix_epoch_start = datetime(1601, 1, 1)
-            timestamp = unix_epoch_start + timedelta(microseconds=filetime / 10)
+            return unix_epoch_start + timedelta(microseconds=filetime / 10)
     return None
 
 
