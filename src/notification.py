@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from preston import Preston
 
@@ -46,8 +46,12 @@ def get_reinforce_exit_time(notification: dict) -> datetime | None:
     """returns a character_id from the notification or None if no character_id can be found"""
     for line in notification.get("text").split("\n"):
         if "reinforceExitTime:" in line:
-            timestamp = int(line.split(" ")[1])
-            return datetime.fromtimestamp(timestamp, timezone.utc)
+            filetime = int(line.split(" ")[1])
+            # Convert to datetime
+            # FILETIME starts from January 1, 1601
+            # There are 10,000,000 intervals in one second
+            unix_epoch_start = datetime(1601, 1, 1)
+            timestamp = unix_epoch_start + timedelta(microseconds=filetime / 10)
     return None
 
 
