@@ -141,7 +141,8 @@ async def no_auth_pings(action_lock, bot):
                 if not user.characters.exists():
                     try:
                         user_channel = await bot.fetch_channel(int(user.callback_channel_id))
-                    except discord.errors.Forbidden:
+                    except Exception:
+                        # There is nothing to salvage for this user anyway
                         continue
 
                     warning_text = (
