@@ -92,7 +92,7 @@ async def on_ready():
     # Start background tasks
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
-    no_auth_pings.start(action_lock, bot)
+    # no_auth_pings.start(action_lock, bot)
     callback_server.start(base_preston)
 
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
