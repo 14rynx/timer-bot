@@ -10,6 +10,7 @@ from notification import send_notification_message
 from structure import send_structure_message
 from utils import get_channel
 from warning import no_channel_anymore_log, handle_auth_error, handle_structure_error, handle_notification_error
+from datetime import datetime, time, timedelta
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
@@ -24,6 +25,10 @@ logger = logging.getLogger('discord.timer.relay')
 # Configure iteration variables
 notification_phase = -1
 status_phase = -1
+
+def is_server_downtime_now():
+    now_utc = datetime.utcnow().time()
+    return time(11, 0) <= now_utc < time(11, 10)
 
 
 async def schedule_characters(action_lock, phase, total_phases):
@@ -50,6 +55,9 @@ async def notification_pings(action_lock, preston, bot):
         global notification_phase
         notification_phase = (notification_phase + 1) % NOTIFICATION_PHASES
         logger.debug(f"Running notification_pings in phase {notification_phase}.")
+        if is_server_downtime_now():
+            logger.info("ESI is probably down (11:00–11:10 UTC). Skipping this run.")
+            return
 
         async for character in schedule_characters(action_lock, notification_phase, NOTIFICATION_PHASES):
 
@@ -95,6 +103,9 @@ async def status_pings(action_lock, preston, bot):
         global status_phase
         status_phase = (status_phase + 1) % STATUS_PHASES
         logger.debug(f"Running status_pings in phase {status_phase}.")
+        if is_server_downtime_now():
+            logger.info("ESI is probably down (11:00–11:10 UTC). Skipping this run.")
+            return
 
         async for character in schedule_characters(action_lock, status_phase, STATUS_PHASES):
 
