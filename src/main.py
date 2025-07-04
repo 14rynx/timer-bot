@@ -255,44 +255,35 @@ async def info(interaction: Interaction):
                 else:
                     raise
 
-            corporation_id = authed_preston.get_op(
-                'get_characters_character_id',
-                character_id=character.character_id
-            ).get("corporation_id")
+            try:
+                corporation_id = authed_preston.get_op(
+                    'get_characters_character_id',
+                    character_id=character.character_id
+                ).get("corporation_id")
+            except ConnectionError:
+                logger.warning(f"Got a network error with {character}, skipping...")
+                await interaction.followup.send("Network error with /info command, try again later")
+            except Exception as e:
+                await interaction.followup.send(f"Got an unfamiliar with /info for {character}: {e}.")
+                logger.error(f"Got an unfamiliar with /info for {character}: {e}.", exc_info=True)
 
-            # Get structure data and build info for this structure
-            structure_response = authed_preston.get_op(
-                'get_corporations_corporation_id_structures',
-                corporation_id=corporation_id
-            )
-
-            if type(structure_response) is dict:
-                if "error" in structure_response:
-                    match structure_response["error"]:
-                        case "Character does not have required role(s)":
-                            await send_foreground_warning(
-                                interaction,
-                                await structure_permission_warning(character, authed_preston)
-                            )
-                        case "Character is not in the corporation":
-                            await send_foreground_warning(
-                                interaction,
-                                await structure_corp_warning(character, authed_preston)
-                            )
-                        case _:
-                            await send_foreground_warning(
-                                interaction,
-                                await structure_other_warning(
-                                    character, authed_preston, structure_response.get("error", "")
-                                )
-                            )
-                else:
-                    logger.error(f"Got an unfamiliar response for {character}: {structure_response}.", exc_info=True)
-                continue
-
-            for structure in structure_response:
-                structure_id = structure.get("structure_id")
-                structures_info[structure_id] = structure_info_text(structure)
+            try:
+                structure_response = authed_preston.get_op(
+                    "get_corporations_corporation_id_structures",
+                    corporation_id=corporation_id,
+                )
+            except ConnectionError:
+                logger.warning(f"Got a network error with {character}, skipping...")
+                await interaction.followup.send("Network error with /info command, try again later")
+            except HTTPError as exp:
+                await handle_structure_error(character, authed_preston, exp, interaction=interaction)
+            except Exception as e:
+                await interaction.followup.send(f"Got an unfamiliar with /info for {character}: {e}.")
+                logger.error(f"Got an unfamiliar with /info for {character}: {e}.", exc_info=True)
+            else:
+                for structure in structure_response:
+                    structure_id = structure.get("structure_id")
+                    structures_info[structure_id] = structure_info_text(structure)
 
     # Build message with all structure info
     output = "\n"
@@ -306,7 +297,7 @@ async def info(interaction: Interaction):
 
 @bot.tree.command(
     name="action",
-    description="Sends a text to all user for a call to action."
+    description="Sends a text to all user for a call to action. Admin only."
 )
 @app_commands.describe(
     text="Call to action text to sed to all users."
@@ -316,6 +307,7 @@ async def action(interaction: Interaction, text: str):
     """Admin only: send a message to all users concerning the bot."""
     if int(interaction.user.id) != int(os.environ["ADMIN"]):
         await interaction.response.send_message("You are not authorized to perform this action.")
+        return
 
     await interaction.response.send_message("Sending action text...")
 

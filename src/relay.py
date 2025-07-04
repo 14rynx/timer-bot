@@ -131,7 +131,7 @@ async def status_pings(action_lock, preston, bot):
             except ConnectionError:
                 logger.warning(f"Got a network error with {character}, skipping...")
             except HTTPError as exp:
-                await handle_structure_error(character, user_channel, authed_preston, exp)
+                await handle_structure_error(character, authed_preston, exp, channel=user_channel)
             except Exception as e:
                 logger.error(f"Got an unfamiliar exceptions when fetching structures for {character}: {e}.",
                              exc_info=True)

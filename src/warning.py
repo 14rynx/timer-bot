@@ -158,15 +158,16 @@ async def handle_auth_error(character, channel, preston, exception):
             f"{character} encountered HTTPError with no response attached when trying to authenticate: {exception}")
 
 
-async def handle_structure_error(character, channel, authed_preston, exception):
+async def handle_structure_error(character, authed_preston, exception, channel=None, interaction=None):
     if exception.response is not None:
         response_content = exception.response.json()
         match response_content.get("error", ""):
             case "Character does not have required role(s)":
-                await send_background_warning(
-                    channel,
-                    await structure_permission_warning(character, authed_preston),
-                )
+                warning_text = await structure_permission_warning(character, authed_preston)
+                if interaction is not None:
+                    await send_foreground_warning(interaction, warning_text)
+                if channel is not None:
+                    await send_background_warning(channel, warning_text)
             case "Character is not in the corporation":
                 # See if character changed corporation and update
                 character_new_corporation = authed_preston.get_op(
@@ -176,20 +177,22 @@ async def handle_structure_error(character, channel, authed_preston, exception):
 
                 # Send warning if corp was correct, else update corp
                 if character.corporation_id == character_new_corporation:
-                    await send_background_warning(
-                        channel,
-                        await structure_corp_warning(character, authed_preston),
-                    )
+                    warning_text = await structure_corp_warning(character, authed_preston)
+                    if interaction is not None:
+                        await send_foreground_warning(interaction, warning_text)
+                    if channel is not None:
+                        await send_background_warning(channel, warning_text)
                 else:
                     character.corporation_id = character_new_corporation
                     character.save()
+                    if interaction is not None:
+                        await interaction.followup.send("Your corporation was out of date from ESI, should be fixed on the next try.")
             case _:
-                await send_background_warning(
-                    channel,
-                    await structure_other_warning(
-                        character, authed_preston, response_content.get("error", "")
-                    ),
-                )
+                warning_text =  await structure_other_warning(character, authed_preston, response_content.get("error", ""))
+                if interaction is not None:
+                    await send_foreground_warning(interaction, warning_text)
+                if channel is not None:
+                    await send_background_warning(channel, warning_text)
 
     else:
         logger.warning(
