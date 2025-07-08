@@ -1,6 +1,8 @@
 import logging
+from datetime import datetime, timezone, timedelta
 import os
 
+import dateutil.parser
 from aiohttp import web
 from discord.ext import tasks
 from preston import Preston
@@ -72,8 +74,14 @@ async def callback_server(preston: Preston):
 
         for notification in notifications:
             if is_structure_notification(notification):
+                timestamp = dateutil.parser.isoparse(notification.get("timestamp"))
+
+                if timestamp < datetime.now(timezone.utc) - timedelta(days=1):
+                    continue
+
                 notification, created = Notification.get_or_create(
                     notification_id=str(notification.get("notification_id")),
+                    timestamp=timestamp
                 )
                 notification.sent = True
                 notification.save()

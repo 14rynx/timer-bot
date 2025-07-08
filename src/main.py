@@ -15,11 +15,11 @@ from requests.exceptions import HTTPError
 
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
-from relay import notification_pings, status_pings, no_auth_pings
+from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_notifications
 from structure import structure_info_text
 from warning import send_foreground_warning
 from warning import esi_permission_warning, structure_permission_warning, structure_corp_warning, \
-    structure_other_warning, channel_warning
+    structure_other_warning, channel_warning, handle_structure_error
 from utils import lookup, get_channel
 
 # Configure the logger
@@ -30,7 +30,11 @@ logger.setLevel(log_level)
 # Initialize the database
 initialize_database()
 
+# Run Migrations
+from migrations import migration_2025_07_08
+migration_2025_07_08.run_migration()
 
+# Setup ESI connection
 def refresh_token_callback(preston):
     character_id = preston.whoami()["character_id"]
     character = Character.get(character_id=character_id)
@@ -38,7 +42,6 @@ def refresh_token_callback(preston):
     character.save()
 
 
-# Setup ESI connection
 base_preston = Preston(
     user_agent="Structure timer discord bot by <larynx.austrene@gmail.com>",
     client_id=os.environ["CCP_CLIENT_ID"],
@@ -98,7 +101,7 @@ async def on_ready():
     # Start background tasks
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
-    # no_auth_pings.start(action_lock, bot)
+    cleanup_old_notifications.start(action_lock)
     callback_server.start(base_preston)
 
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
@@ -109,6 +112,9 @@ async def on_ready():
         logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
     await log_statistics()
+
+    await asyncio.sleep(60 * 60 * 5) # Wait 5 hours
+    no_auth_pings.start(action_lock, bot)
 
 
 @bot.tree.command(name="auth", description="Sends you an authorization link for characters.")

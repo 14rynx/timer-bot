@@ -3,11 +3,12 @@ from datetime import datetime, timezone, timedelta
 
 from preston import Preston
 
+import dateutil.parser
 from models import Notification
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.notification')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def get_structure_id(notification: dict) -> int | None:
@@ -128,8 +129,13 @@ def is_structure_notification(notification: dict) -> bool:
 async def send_notification_message(notification, user_channel, authed_preston, identifier="<no identifier>"):
     """For a notification from ESI take action and inform a user if required"""
     notification_id = notification.get("notification_id")
+    timestamp = dateutil.parser.isoparse(notification.get("timestamp"))
 
-    notif, created = Notification.get_or_create(notification_id=notification_id)
+    if timestamp < datetime.now(timezone.utc) - timedelta(days=1):
+        logger.debug(f"Skipping old notification {notification_id} for {identifier}")
+        return
+
+    notif, created = Notification.get_or_create(notification_id=notification_id, timestamp=timestamp)
 
     if is_structure_notification(notification):
         if not notif.sent:
@@ -137,25 +143,20 @@ async def send_notification_message(notification, user_channel, authed_preston, 
                 if len(message := structure_notification_text(notification, authed_preston)) > 0:
                     await user_channel.send(message)
                     logger.debug(f"Sent structure notification to {identifier}")
-
             except Exception as e:
                 logger.warning(f"Could not send structure notification to {identifier}: {e}")
             else:
                 notif.sent = True
                 notif.save()
-    elif is_poco_notification(notification):
+
+    if is_poco_notification(notification):
         if not notif.sent:
             try:
                 if len(message := poco_notification_text(notification, authed_preston)) > 0:
-                    await user_channel.send(message) # Not used for now
-                    logger.debug(f"Sent poco notification to {identifier}")
-
+                    await user_channel.send(message)
+                    logger.debug(f"Sent POCO notification to {identifier}")
             except Exception as e:
-                logger.error(f"Could not send poco notification to {identifier}: {e}", exc_info=True)
+                logger.error(f"Could not send POCO notification to {identifier}: {e}", exc_info=True)
             else:
                 notif.sent = True
                 notif.save()
-    else:
-        if not notif.sent:
-            notif.sent = True
-            notif.save()

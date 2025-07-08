@@ -1,4 +1,5 @@
 from peewee import *
+from datetime import datetime
 
 # Initialize the database
 db = SqliteDatabase('data/bot.sqlite')
@@ -12,7 +13,6 @@ class BaseModel(Model):
 class User(BaseModel):
     user_id = CharField(primary_key=True)
     callback_channel_id = CharField()
-    next_warning = IntegerField(default=0) # This is no longer used
 
     def __repr__(self):
         return f"User(user_id={self.user_id}, callback_channel_id={self.callback_channel_id}, next_warning={self.next_warning})"
@@ -40,8 +40,12 @@ class Challenge(BaseModel):
 
 
 class Notification(BaseModel):
-    notification_id = CharField(primary_key=True)
+    notification_id = CharField()
+    timestamp = DateTimeField()
     sent = BooleanField(default=False)
+
+    class Meta:
+        primary_key = CompositeKey('notification_id', 'timestamp')
 
 
 class Structure(BaseModel):
@@ -50,6 +54,11 @@ class Structure(BaseModel):
     last_fuel_warning = IntegerField()
 
 
+class Migration(BaseModel):
+    name = CharField(unique=True)
+    applied_at = DateTimeField(default=datetime.utcnow)
+
+
 def initialize_database():
     with db:
-        db.create_tables([User, Character, Challenge, Notification, Structure])
+        db.create_tables([User, Character, Challenge, Notification, Structure, Migration])

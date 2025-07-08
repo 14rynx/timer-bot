@@ -5,7 +5,7 @@ import discord
 from discord.ext import tasks
 from requests.exceptions import HTTPError, ConnectionError
 
-from models import Character, User
+from models import Character, User, Notification
 from notification import send_notification_message
 from structure import send_structure_message
 from utils import get_channel
@@ -25,6 +25,7 @@ logger = logging.getLogger('discord.timer.relay')
 # Configure iteration variables
 notification_phase = -1
 status_phase = -1
+
 
 def is_server_downtime_now():
     now_utc = datetime.utcnow().time()
@@ -172,3 +173,15 @@ async def no_auth_pings(action_lock, bot):
 
         except Exception as e:
             logger.error(f"Error while trying to notify users without auth: {e}")
+
+
+@tasks.loop(hours=1)
+async def cleanup_old_notifications(action_lock):
+    """Delete notifications older than 4 weeks."""
+    async with action_lock:
+        try:
+            threshold = datetime.utcnow() - timedelta(days=2)
+            deleted = Notification.delete().where(Notification.timestamp < threshold).execute()
+            logger.info(f"Deleted {deleted} old notifications older than 2 weeks")
+        except Exception as e:
+            logger.error(f"Error while deleting old notifications: {e}")
