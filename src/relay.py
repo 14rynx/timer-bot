@@ -175,7 +175,7 @@ async def no_auth_pings(action_lock, bot):
             logger.error(f"Error while trying to notify users without auth: {e}")
 
 
-@tasks.loop(hours=42)
+@tasks.loop(hours=1)
 async def cleanup_old_notifications(action_lock):
     """Delete notifications older than 4 weeks."""
     async with action_lock:
