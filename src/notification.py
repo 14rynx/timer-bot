@@ -131,7 +131,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
     notification_id = notification.get("notification_id")
     timestamp = dateutil.parser.isoparse(notification.get("timestamp"))
 
-    if timestamp < datetime.now(timezone.utc) - timedelta(weeks=1):
+    if timestamp < datetime.now(timezone.utc) - timedelta(days=1):
         logger.debug(f"Skipping old notification {notification_id} for {identifier}")
         return
 
