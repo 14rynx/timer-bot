@@ -181,6 +181,6 @@ async def cleanup_old_notifications(action_lock):
         try:
             threshold = datetime.utcnow() - timedelta(days=2)
             deleted = Notification.delete().where(Notification.timestamp < threshold).execute()
-            logger.info(f"Deleted {deleted} old notifications older than 2 weeks")
+            logger.debug(f"Deleted {deleted} old notifications older than 2 weeks")
         except Exception as e:
             logger.error(f"Error while deleting old notifications: {e}")

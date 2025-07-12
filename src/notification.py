@@ -140,7 +140,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
             try:
                 if len(message := structure_notification_text(notification, authed_preston)) > 0:
                     await user_channel.send(message)
-                    logger.debug(f"Sent structure notification to {identifier}")
+                    logger.info(f"Sent structure notification to {identifier}")
             except Exception as e:
                 logger.warning(f"Could not send structure notification to {identifier}: {e}")
             else:
@@ -152,7 +152,7 @@ async def send_notification_message(notification, user_channel, authed_preston, 
             try:
                 if len(message := poco_notification_text(notification, authed_preston)) > 0:
                     await user_channel.send(message)
-                    logger.debug(f"Sent POCO notification to {identifier}")
+                    logger.info(f"Sent POCO notification to {identifier}")
             except Exception as e:
                 logger.error(f"Could not send POCO notification to {identifier}: {e}", exc_info=True)
             else:

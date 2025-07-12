@@ -93,19 +93,19 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
                 f"Structure {structure.get('name')} newly found in state:\n"
                 f"{structure_info_text(structure)}"
             )
-            logger.debug(f"Sent initial state to user {identifier}")
+            logger.info(f"Sent initial state to user {identifier}")
         except Exception as e:
             logger.warning(f"Could not send initial state to {identifier}: {e}")
 
     else:
         # Send message based on state
-        if structure_db.last_state != structure.get("state"):
+        if structure_db.last_state != structure.get1("state"):
             try:
                 await user_channel.send(
                     f"Structure {structure.get('name')} changed state:\n"
                     f"{structure_info_text(structure)}"
                 )
-                logger.debug(f"Sent state change to user {identifier}")
+                logger.info(f"Sent state change to user {identifier}")
             except Exception as e:
                 logger.warning(f"Could not send state change to user {identifier}: {e}")
             else:
