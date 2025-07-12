@@ -12,15 +12,14 @@ from utils import get_channel
 from warning import no_channel_anymore_log, handle_auth_error, handle_structure_error, handle_notification_error
 from datetime import datetime, time, timedelta
 
+logger = logging.getLogger('discord.timer.relay')
+
 # Constants
 NOTIFICATION_CACHE_TIME = 600
 NOTIFICATION_PHASES = 12
 
 STATUS_CACHE_TIME = 3600
 STATUS_PHASES = 12
-
-# Configure the logger
-logger = logging.getLogger('discord.timer.relay')
 
 # Configure iteration variables
 notification_phase = -1

@@ -13,7 +13,6 @@ class BaseModel(Model):
 class User(BaseModel):
     user_id = CharField(primary_key=True)
     callback_channel_id = CharField()
-    next_warning = IntegerField(default=0) # This is no longer used
 
     def __repr__(self):
         return f"User(user_id={self.user_id}, callback_channel_id={self.callback_channel_id}, next_warning={self.next_warning})"
@@ -63,3 +62,10 @@ class Migration(BaseModel):
 def initialize_database():
     with db:
         db.create_tables([User, Character, Challenge, Notification, Structure, Migration])
+
+    # Run Migrations
+    from migrations import migration_2025_07_08
+    migration_2025_07_08.run_migration()
+
+    from migrations import migration_2025_07_12
+    migration_2025_07_12.run_migration()

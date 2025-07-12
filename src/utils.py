@@ -1,7 +1,12 @@
+import logging
+
 import discord
 from preston import Preston
 
+from models import User
 from warning import channel_warning, send_background_warning
+
+logger = logging.getLogger('discord.timer.utils')
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -86,3 +91,20 @@ async def send_large_message(ctx, message, max_chars=1994, delimiter='\n', **kwa
 
         # Send the current part
         await ctx.send(part, **kwargs)
+
+
+async def log_statistics():
+    """Log the number of users and their characters on bot startup."""
+    try:
+        for user in User.select():
+            if user.characters.exists():
+                character_list = ", ".join(
+                    [character.character_id for character in user.characters.select()]
+                )
+            else:
+                character_list = "No characters"
+            logger.info(
+                f"User ID: {user.user_id}, Linked Channel: {user.callback_channel_id}, Character IDs: {character_list}")
+
+    except Exception as e:
+        logger.error(f"Error while logging users and characters: {e}")

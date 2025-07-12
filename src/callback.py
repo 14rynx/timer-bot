@@ -7,7 +7,6 @@ from preston import Preston
 from models import User, Character, Challenge, Notification
 from notification import is_structure_notification
 
-# Configure the logger
 logger = logging.getLogger('discord.timer.callback')
 
 

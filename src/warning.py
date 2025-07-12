@@ -7,7 +7,6 @@ from preston import Preston
 
 from models import Character
 
-# Configure the logger
 logger = logging.getLogger('discord.timer.warnings')
 
 sent_warnings = {}
@@ -186,9 +185,11 @@ async def handle_structure_error(character, authed_preston, exception, channel=N
                     character.corporation_id = character_new_corporation
                     character.save()
                     if interaction is not None:
-                        await interaction.followup.send("Your corporation was out of date from ESI, should be fixed on the next try.")
+                        await interaction.followup.send(
+                            "Your corporation was out of date from ESI, should be fixed on the next try.")
             case _:
-                warning_text =  await structure_other_warning(character, authed_preston, response_content.get("error", ""))
+                warning_text = await structure_other_warning(character, authed_preston,
+                                                             response_content.get("error", ""))
                 if interaction is not None:
                     await send_foreground_warning(interaction, warning_text)
                 if channel is not None:

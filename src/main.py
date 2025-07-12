@@ -1,15 +1,14 @@
 import asyncio
 import functools
+import json
 import logging
 import os
 import secrets
-import json
-import tempfile
+from io import BytesIO
 
 import discord
 from discord import Interaction, app_commands
 from discord.ext import commands
-from io import BytesIO
 from preston import Preston
 from requests.exceptions import HTTPError
 
@@ -17,10 +16,9 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_notifications
 from structure import structure_info_text
+from utils import lookup, get_channel, log_statistics
+from warning import esi_permission_warning, channel_warning
 from warning import send_foreground_warning
-from warning import esi_permission_warning, structure_permission_warning, structure_corp_warning, \
-    structure_other_warning, channel_warning
-from utils import lookup, get_channel
 
 # Configure the logger
 logger = logging.getLogger('discord.timer')
@@ -30,9 +28,6 @@ logger.setLevel(log_level)
 # Initialize the database
 initialize_database()
 
-# Run Migrations
-from migrations import migration_2025_07_08
-migration_2025_07_08.run_migration()
 
 # Setup ESI connection
 def refresh_token_callback(preston):
@@ -57,23 +52,6 @@ intent = discord.Intents.default()
 intent.messages = True
 intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
-
-
-async def log_statistics():
-    """Log the number of users and their characters on bot startup."""
-    try:
-        for user in User.select():
-            if user.characters.exists():
-                character_list = ", ".join(
-                    [character.character_id for character in user.characters.select()]
-                )
-            else:
-                character_list = "No characters"
-            logger.info(
-                f"User ID: {user.user_id}, Linked Channel: {user.callback_channel_id}, Character IDs: {character_list}")
-
-    except Exception as e:
-        logger.error(f"Error while logging users and characters: {e}")
 
 
 def command_error_handler(func):
@@ -113,7 +91,7 @@ async def on_ready():
 
     await log_statistics()
 
-    await asyncio.sleep(60 * 60 * 5) # Wait 5 hours
+    await asyncio.sleep(60 * 60 * 5)  # Wait 5 hours
     no_auth_pings.start(action_lock, bot)
 
 
@@ -387,7 +365,7 @@ async def debug(interaction: Interaction, character_id: int):
         )
 
     except HTTPError as exp:
-        await interaction.followup.send(f"HTTPError: {exp.response.status_code} - {exp.response.text}",  ephemeral=True)
+        await interaction.followup.send(f"HTTPError: {exp.response.status_code} - {exp.response.text}", ephemeral=True)
     except Exception as e:
         await interaction.followup.send(f"Unhandled exception: {e}", ephemeral=True)
 

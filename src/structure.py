@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 
 from models import Structure
 
+logger = logging.getLogger('discord.timer.structure')
+
 # Mapping of EVE states to human-readable states
 state_mapping = {
     "anchor_vulnerable": "Anchoring timer ticking",
@@ -22,9 +24,6 @@ state_mapping = {
 
 # Days when a fuel warning is sent
 fuel_warnings = [30, 15, 7, 3, 2, 1, 0]
-
-# Configure the logger
-logger = logging.getLogger('discord.timer.structure')
 
 
 def to_datetime(time_string: str | None) -> datetime | None:

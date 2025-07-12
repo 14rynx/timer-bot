@@ -1,14 +1,12 @@
 import logging
 from datetime import datetime, timezone, timedelta
 
+import dateutil.parser
 from preston import Preston
 
-import dateutil.parser
 from models import Notification
 
-# Configure the logger
 logger = logging.getLogger('discord.timer.notification')
-logger.setLevel(logging.INFO)
 
 
 def get_structure_id(notification: dict) -> int | None:
