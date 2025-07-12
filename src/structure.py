@@ -99,7 +99,7 @@ async def send_structure_message(structure, user_channel, identifier="<no identi
 
     else:
         # Send message based on state
-        if structure_db.last_state != structure.get1("state"):
+        if structure_db.last_state != structure.get("state"):
             try:
                 await user_channel.send(
                     f"Structure {structure.get('name')} changed state:\n"
