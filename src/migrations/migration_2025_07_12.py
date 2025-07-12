@@ -29,4 +29,4 @@ def run_migration():
 
         db.execute_sql("DROP TABLE user_old;")
 
-        Migration.create(name="2025_07_08_notification_schema")
+        Migration.create(name="2025_07_12_notification_schema")
