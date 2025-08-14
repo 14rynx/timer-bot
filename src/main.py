@@ -19,7 +19,7 @@ from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_n
 from structure import structure_info_text
 from warning import send_foreground_warning
 from warning import esi_permission_warning, structure_permission_warning, structure_corp_warning, \
-    structure_other_warning, channel_warning
+    structure_other_warning, channel_warning, handle_structure_error
 from utils import lookup, get_channel
 
 # Configure the logger
