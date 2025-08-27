@@ -1,7 +1,24 @@
+import os
 from peewee import *
 
-# Initialize the database
-db = SqliteDatabase('data/bot.sqlite')
+# Initialize the database based on environment variables
+def get_database():
+    """Get database instance based on environment configuration."""
+    db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+    
+    if db_type == 'postgresql':
+        return PostgresqlDatabase(
+            os.getenv('DB_NAME', 'timer_bot'),
+            user=os.getenv('DB_USER', 'postgres'),
+            password=os.getenv('DB_PASSWORD', ''),
+            host=os.getenv('DB_HOST', 'localhost'),
+            port=int(os.getenv('DB_PORT', '5432'))
+        )
+    else:
+        # Default to SQLite
+        return SqliteDatabase(os.getenv('DB_PATH', 'data/bot.sqlite'))
+
+db = get_database()
 
 
 class BaseModel(Model):
