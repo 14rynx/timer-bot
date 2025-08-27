@@ -1,3 +1,4 @@
 discord
 peewee
 preston
+psycopg2-binary
