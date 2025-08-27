@@ -1,4 +1,5 @@
 import logging
+import os
 
 from aiohttp import web
 from discord.ext import tasks
@@ -87,5 +88,5 @@ async def callback_server(preston: Preston):
     app.add_routes(routes)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, port=80)
+    site = web.TCPSite(runner, port=int(os.getenv('CALLBACK_PORT', '80')))
     await site.start()
