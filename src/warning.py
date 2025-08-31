@@ -28,9 +28,11 @@ async def send_background_warning(channel, warning: tuple[str, str]):
             logger.info(f"Sent warning {log_text}.")
         except Exception as e:
             logger.warning(f"Could not send warning {log_text}: {e}")
+            return False
         else:
             # Mark this exact warning as already sent
             sent_warnings[log_text] = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
+            return True
 
 
 async def send_foreground_warning(interaction: Interaction, warning: tuple[str, str]):
@@ -139,16 +141,19 @@ async def no_channel_anymore_log(character):
 
 async def handle_auth_error(character, channel, preston, exception):
     if exception.response is not None:
-        if exception.response.status_code == 400:
-            await send_background_warning(
+        if exception.response.status_code == 400 or exception.response.status_code == 401:
+            success = await send_background_warning(
                 channel,
                 await esi_permission_warning(character, preston)
             )
-        elif exception.response.status_code == 401:
-            await send_background_warning(
-                channel,
-                await esi_permission_warning(character, preston)
-            )
+
+            if not success:
+                logger.error(
+                    f"{character} can not be reached on either side (ESI & Discord) and will be deleted."
+                )
+                character = Character.get_or_none(character.character_id)
+                character.delete_instance()
+
         else:
             logger.error(
                 f"{character} got {exception.response.status_code} response {exception.response.text}, skipping..."
