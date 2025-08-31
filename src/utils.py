@@ -1,7 +1,11 @@
 import discord
 from preston import Preston
+import logging
 
+from models import User
 from warning import channel_warning, send_background_warning
+
+logger = logging.getLogger('discord.timer.utils')
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -35,15 +39,47 @@ async def lookup(preston: Preston, string: str, return_type: str) -> int:
 
 async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
+    emergency_dm = False
     try:
         channel = await bot.fetch_channel(int(user.callback_channel_id))
-    except discord.errors.Forbidden:
+    except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException, discord.errors.InvalidData):
+        try:
+            discord_user = await bot.fetch_user(int(user.user_id))
+            channel = await discord_user.create_dm()
+            emergency_dm = True
+        except Exception as e:
+            logger.warning(f"Failed to get channel or open DM channel for user {user}: {e}", exc_info=True)
+            return None
+
+    except Exception as e:
+        logger.warning(f"Failed to get channel for user {user}: {e}", exc_info=True)
         return None
 
-    if channel is not None and isinstance(channel, discord.channel.DMChannel):
-        await send_background_warning(channel, await channel_warning(user))
+    if channel is None:
+        return None
+
+    # Now we should definitely have a good channel
+
+    if isinstance(channel, discord.channel.DMChannel):
+        await send_background_warning(channel, await channel_warning(user), quiet=emergency_dm)
     return channel
 
+
+async def update_channel_if_broken(interaction, bot):
+    user = User.get_or_none(user_id=str(interaction.user.id))
+    if user is None:
+        return
+
+    try:
+        await bot.fetch_channel(int(user.callback_channel_id))
+    except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException,
+            discord.errors.InvalidData):
+        user.callback_channel_id = str(interaction.channel.id)
+        user.save()
+    except Exception as e:
+        logger.warning(f"Channel broken in a different way than expected for user {user}: {e}", exc_info=True)
+        user.callback_channel_id = str(interaction.channel.id)
+        user.save()
 
 async def send_large_message(ctx, message, max_chars=1994, delimiter='\n', **kwargs):
     open_code_block = False

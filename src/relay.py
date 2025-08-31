@@ -1,7 +1,7 @@
 import collections
 import logging
+from datetime import datetime, time, timedelta
 
-import discord
 from discord.ext import tasks
 from requests.exceptions import HTTPError, ConnectionError
 
@@ -10,7 +10,6 @@ from notification import send_notification_message
 from structure import send_structure_message
 from utils import get_channel
 from warning import no_channel_anymore_log, handle_auth_error, handle_structure_error, handle_notification_error
-from datetime import datetime, time, timedelta
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
@@ -182,6 +181,6 @@ async def cleanup_old_notifications(action_lock):
         try:
             threshold = datetime.utcnow() - timedelta(days=2)
             deleted = Notification.delete().where(Notification.timestamp < threshold).execute()
-            logger.info(f"Deleted {deleted} old notifications older than 2 weeks")
+            logger.info(f"Deleted {deleted} old notifications older than 2 days.")
         except Exception as e:
             logger.error(f"Error while deleting old notifications: {e}")
