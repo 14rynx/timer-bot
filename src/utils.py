@@ -39,12 +39,14 @@ async def lookup(preston: Preston, string: str, return_type: str) -> int:
 
 async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
+    emergency_dm = False
     try:
         channel = await bot.fetch_channel(int(user.callback_channel_id))
     except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException, discord.errors.InvalidData):
         try:
             discord_user = await bot.fetch_user(int(user.user_id))
             channel = await discord_user.create_dm()
+            emergency_dm = True
         except Exception as e:
             logger.warning(f"Failed to get channel or open DM channel for user {user}: {e}", exc_info=True)
             return None
@@ -59,7 +61,7 @@ async def get_channel(user, bot):
     # Now we should definitely have a good channel
 
     if isinstance(channel, discord.channel.DMChannel):
-        await send_background_warning(channel, await channel_warning(user))
+        await send_background_warning(channel, await channel_warning(user), quiet=emergency_dm)
     return channel
 
 

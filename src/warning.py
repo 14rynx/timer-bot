@@ -16,7 +16,7 @@ no_channel_characters = set()
 disconnected_character_cycles = defaultdict(int)
 
 
-async def send_background_warning(channel, warning: tuple[str, str]):
+async def send_background_warning(channel, warning: tuple[str, str], quiet: bool = False):
     """Send a warning message to a user from a background process, making sure
     not to repeat the warning to many times and spamming the user"""
 
@@ -29,7 +29,8 @@ async def send_background_warning(channel, warning: tuple[str, str]):
             await channel.send(warning_text)
             logger.info(f"Sent warning {log_text}.")
         except Exception as e:
-            logger.warning(f"Could not send warning {log_text}: {e}")
+            if not quiet:
+                logger.warning(f"Could not send warning {log_text}: {e}")
             return False
         else:
             # Mark this exact warning as already sent
