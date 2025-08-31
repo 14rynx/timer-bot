@@ -40,19 +40,24 @@ async def get_channel(user, bot):
     """Get a discord channel for a specific user."""
     try:
         channel = await bot.fetch_channel(int(user.callback_channel_id))
-    except discord.errors.Forbidden:
-        return None
-    except discord.errors.NotFound:
-        return None
-    except discord.errors.HTTPException:
-        return None
-    except discord.errors.InvalidData:
-        return None
+    except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException, discord.errors.InvalidData):
+        try:
+            discord_user = await bot.fetch_user(int(user.user_id))
+            channel = await discord_user.create_dm()
+        except Exception as e:
+            logger.warning(f"Failed to get channel or open DM channel for user {user}: {e}", exc_info=True)
+            return None
+
     except Exception as e:
-        logger.warning(f"Failed to get channel info for user {user}: {e}", exc_info=True)
+        logger.warning(f"Failed to get channel for user {user}: {e}", exc_info=True)
         return None
 
-    if channel is not None and isinstance(channel, discord.channel.DMChannel):
+    if channel is None:
+        return None
+
+    # Now we should definitely have a good channel
+
+    if isinstance(channel, discord.channel.DMChannel):
         await send_background_warning(channel, await channel_warning(user))
     return channel
 
