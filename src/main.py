@@ -20,7 +20,7 @@ from structure import structure_info_text
 from warning import send_foreground_warning
 from warning import esi_permission_warning, structure_permission_warning, structure_corp_warning, \
     structure_other_warning, channel_warning, handle_structure_error
-from utils import lookup, get_channel
+from utils import lookup, get_channel, update_channel_if_broken
 
 # Configure the logger
 logger = logging.getLogger('discord.timer')
@@ -169,6 +169,8 @@ async def characters(interaction: Interaction):
     await interaction.response.defer(ephemeral=True)
     """Displays your currently authorized characters."""
 
+    await update_channel_if_broken(interaction, bot)
+
     character_names = []
     user = User.get_or_none(User.user_id == str(interaction.user.id))
     if user:
@@ -253,6 +255,9 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
 @command_error_handler
 async def info(interaction: Interaction):
     await interaction.response.defer()
+
+    await update_channel_if_broken(interaction, bot)
+
     structures_info = {}
 
     user = User.get_or_none(User.user_id == str(interaction.user.id))

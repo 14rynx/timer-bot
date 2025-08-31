@@ -2,6 +2,7 @@ import discord
 from preston import Preston
 import logging
 
+from models import User
 from warning import channel_warning, send_background_warning
 
 logger = logging.getLogger('discord.timer.utils')
@@ -61,6 +62,22 @@ async def get_channel(user, bot):
         await send_background_warning(channel, await channel_warning(user))
     return channel
 
+
+async def update_channel_if_broken(interaction, bot):
+    user = User.get_or_none(user_id=str(interaction.user.id))
+    if user is None:
+        return
+
+    try:
+        await bot.fetch_channel(int(user.callback_channel_id))
+    except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException,
+            discord.errors.InvalidData):
+        user.callback_channel_id = str(interaction.channel)
+        user.save()
+    except Exception as e:
+        logger.warning(f"Channel broken in a different way than expected for user {user}: {e}", exc_info=True)
+        user.callback_channel_id = str(interaction.channel)
+        user.save()
 
 async def send_large_message(ctx, message, max_chars=1994, delimiter='\n', **kwargs):
     open_code_block = False
