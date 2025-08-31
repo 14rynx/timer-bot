@@ -15,7 +15,7 @@ class User(BaseModel):
     callback_channel_id = CharField()
 
     def __repr__(self):
-        return f"User(user_id={self.user_id}, callback_channel_id={self.callback_channel_id}, next_warning={self.next_warning})"
+        return f"User(user_id={self.user_id}, callback_channel_id={self.callback_channel_id})"
 
     def __str__(self):
         return f"User {self.user_id}"
@@ -31,7 +31,7 @@ class Character(BaseModel):
         return f"Character(character_id={self.character_id}, corporation_id{self.corporation_id}, user_id={self.user.user_id}, token={self.token})"
 
     def __str__(self):
-        return f"Character {self.character_id} by User {self.user.user_id}"
+        return f"Character(character_id={self.character_id}, corporation_id={self.corporation_id} user={self.user})"
 
 
 class Challenge(BaseModel):
