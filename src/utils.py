@@ -1,7 +1,10 @@
 import discord
 from preston import Preston
+import logging
 
 from warning import channel_warning, send_background_warning
+
+logger = logging.getLogger('discord.timer.utils')
 
 
 async def lookup(preston: Preston, string: str, return_type: str) -> int:
@@ -38,6 +41,15 @@ async def get_channel(user, bot):
     try:
         channel = await bot.fetch_channel(int(user.callback_channel_id))
     except discord.errors.Forbidden:
+        return None
+    except discord.errors.NotFound:
+        return None
+    except discord.errors.HTTPException:
+        return None
+    except discord.errors.InvalidData:
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to get channel info for user {user}: {e}", exc_info=True)
         return None
 
     if channel is not None and isinstance(channel, discord.channel.DMChannel):

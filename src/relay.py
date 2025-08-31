@@ -1,7 +1,7 @@
 import collections
 import logging
+from datetime import datetime, time, timedelta
 
-import discord
 from discord.ext import tasks
 from requests.exceptions import HTTPError, ConnectionError
 
@@ -10,7 +10,6 @@ from notification import send_notification_message
 from structure import send_structure_message
 from utils import get_channel
 from warning import no_channel_anymore_log, handle_auth_error, handle_structure_error, handle_notification_error
-from datetime import datetime, time, timedelta
 
 # Constants
 NOTIFICATION_CACHE_TIME = 600
