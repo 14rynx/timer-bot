@@ -72,11 +72,11 @@ async def update_channel_if_broken(interaction, bot):
         await bot.fetch_channel(int(user.callback_channel_id))
     except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException,
             discord.errors.InvalidData):
-        user.callback_channel_id = str(interaction.channel)
+        user.callback_channel_id = str(interaction.channel.id)
         user.save()
     except Exception as e:
         logger.warning(f"Channel broken in a different way than expected for user {user}: {e}", exc_info=True)
-        user.callback_channel_id = str(interaction.channel)
+        user.callback_channel_id = str(interaction.channel.id)
         user.save()
 
 async def send_large_message(ctx, message, max_chars=1994, delimiter='\n', **kwargs):
