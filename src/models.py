@@ -1,5 +1,5 @@
 from peewee import *
-from datetime import datetime
+from datetime import datetime, UTC
 
 # Initialize the database
 db = SqliteDatabase('data/bot.sqlite')
@@ -56,7 +56,7 @@ class Structure(BaseModel):
 
 class Migration(BaseModel):
     name = CharField(unique=True)
-    applied_at = DateTimeField(default=datetime.utcnow)
+    applied_at = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 def initialize_database():
