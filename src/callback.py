@@ -98,3 +98,4 @@ async def callback_server(preston: Preston):
     await runner.setup()
     site = web.TCPSite(runner, port=int(os.getenv('CALLBACK_PORT', '80')))
     await site.start()
+    logger.info("callback_server started")
