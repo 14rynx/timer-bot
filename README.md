@@ -34,62 +34,50 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
     git clone https://github.com/14rynx/timer-bot.git
     ```
    
-2. Create the .env file with the required configuration:
+2. Copy the .env file from the example
     ```shell
-    touch .env
-    ```
-    
-    Add the following variables to your .env file:
-    ```bash
-    # Discord Bot Configuration
-    DISCORD_TOKEN=your_discord_bot_token_here
-    
-    # EVE Online ESI API Configuration
-    CCP_CLIENT_ID=your_ccp_client_id_here
-    CCP_SECRET_KEY=your_ccp_secret_key_here
-    CCP_REDIRECT_URI=https://yourdomain.com/callback
-    
-    # Database Configuration (Optional - defaults to SQLite in data/bot.sqlite)
-    # To use PostgreSQL, set DB_HOST. If DB_HOST is not set, SQLite is used.
-    # DB_HOST=postgres
-    # DB_NAME=timer_bot
-    # DB_USER=postgres
-    # DB_PASSWORD=your_secure_password_here
-    # DB_PORT=5432
-    
-    # Logging
-    LOG_LEVEL=INFO
-    
-    # For Traefik setup
-    DOMAIN=yourdomain.com
-    LE_EMAIL=your_email@example.com
+    cp .env.example .env
     ```
 
-3. Head over to the [Discord Developers Website](https://discord.com/developers/) and create yourself an application.
+3. (Optional) To use PostgreSQL instead of SQLite, add the following to your .env file:
+    ```bash
+    DB_HOST=postgres
+    DB_NAME=timer_bot
+    DB_USER=postgres
+    DB_PASSWORD=your_secure_password_here
+    DB_PORT=5432
+    ```
+    
+    If `DB_HOST` is not set, the bot will use SQLite (`data/bot.sqlite`) by default.
+
+4. Head over to the [Discord Developers Website](https://discord.com/developers/) and create yourself an application.
     - Go to the "Bot" section and reset the token, then copy the new one. Put it in the .env file (`DISCORD_TOKEN=`).
     - Enable the "Message Content Intent" in the Bot section.
     - Invite your bot to your server in the "OAuth2" section. In the URL Generator, click on "Bot" and then
     further down "Send Messages" and "Read Mesasges/View Channels". Follow the generated URL and add the bot to your server.
 
-4. Head over to the [Eve onlone Developers Page](https://developers.eveonline.com/) and create yourself an application.
+5. Head over to the [Eve onlone Developers Page](https://developers.eveonline.com/) and create yourself an application.
     - Under "Application Type" select "Authentication & API Access"
     - Under "Permissions" add `esi-universe.read_structures.v1, esi-corporations.read_structures.v1, esi-characters.read_notifications.v1`
     - Under "Callback URL" set `https://yourdomain.com/callback/` (obviously replace your domain)
 
-    Now view the application and copy the values to your .env file as `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY`.
+    Now view the application and copy the values `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY` to your .env file.
 
-5. Start the container.
-    
+6. Start the container.
     + If you run traefik as a reverse-proxy externally:
       ```shell
       docker-compose up -d --build
       ```
     
     + If you want to run this without any external reverse proxy:
-      - Ensure `LE_EMAIL=your_email@mailserver.com` is set in the .env file so that letsencrypt certbot can send you info about your https certificates
+      - Add the `LE_EMAIL=your_email@mailserver.com` to the .env file so that letsencrypt certbot can send you info about your https certificates
       - Run the docker compose with both timer-bot and traefik with the following command
       ```shell
       docker-compose up -d --build -f docker-compose+traefik.yml
       ```
 
-    **Note**: By default, the bot uses SQLite (`data/bot.sqlite`). To use PostgreSQL instead, set `DB_HOST=postgres` and `DB_PASSWORD` in your .env file. The Docker Compose setup includes a PostgreSQL container when needed.
+7. You can now invite the bot to your server and continue like the public instance.
+   You should be able to get an invite link from the discord admin panel, or you can fill in the blank in this one
+   ```
+   https://discord.com/oauth2/authorize?client_id=<YOUR_CLIENT_ID_GOES_HERE>&permissions=3072&scope=bot
+   ```

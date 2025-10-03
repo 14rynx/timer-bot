@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from json import JSONDecodeError
 
@@ -12,9 +13,10 @@ logger = logging.getLogger('discord.timer.warnings')
 
 sent_warnings = {}
 no_channel_characters = set()
+disconnected_character_cycles = defaultdict(int)
 
 
-async def send_background_warning(channel, warning: tuple[str, str]):
+async def send_background_warning(channel, warning: tuple[str, str], quiet: bool = False):
     """Send a warning message to a user from a background process, making sure
     not to repeat the warning to many times and spamming the user"""
 
@@ -27,10 +29,13 @@ async def send_background_warning(channel, warning: tuple[str, str]):
             await channel.send(warning_text)
             logger.info(f"Sent warning {log_text}.")
         except Exception as e:
-            logger.warning(f"Could not send warning {log_text}: {e}")
+            if not quiet:
+                logger.warning(f"Could not send warning {log_text}: {e}")
+            return False
         else:
             # Mark this exact warning as already sent
             sent_warnings[log_text] = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
+            return True
 
 
 async def send_foreground_warning(interaction: Interaction, warning: tuple[str, str]):
@@ -139,21 +144,28 @@ async def no_channel_anymore_log(character):
 
 async def handle_auth_error(character, channel, preston, exception):
     if exception.response is not None:
-        if exception.response.status_code == 400:
-            await send_background_warning(
+        if exception.response.status_code == 400 or exception.response.status_code == 401:
+            success = await send_background_warning(
                 channel,
                 await esi_permission_warning(character, preston)
             )
-        elif exception.response.status_code == 401:
-            await send_background_warning(
-                channel,
-                await esi_permission_warning(character, preston)
-            )
+
+            if not success:
+                disconnected_character_cycles[character.character_id] += 1
+
+            if disconnected_character_cycles[character.character_id] > 10:
+                logger.error(
+                    f"{character} can not be reached on either side (ESI & Discord) and will be deleted."
+                )
+                character = Character.get_or_none(character.character_id)
+                character.delete_instance()
+
         else:
             logger.error(
                 f"{character} got {exception.response.status_code} response {exception.response.text}, skipping..."
             )
     else:
+        disconnected_character_cycles[character.character_id] = 0
         logger.error(
             f"{character} encountered HTTPError with no response attached when trying to authenticate: {exception}")
 
@@ -186,9 +198,11 @@ async def handle_structure_error(character, authed_preston, exception, channel=N
                     character.corporation_id = character_new_corporation
                     character.save()
                     if interaction is not None:
-                        await interaction.followup.send("Your corporation was out of date from ESI, should be fixed on the next try.")
+                        await interaction.followup.send(
+                            "Your corporation was out of date from ESI, should be fixed on the next try.")
             case _:
-                warning_text =  await structure_other_warning(character, authed_preston, response_content.get("error", ""))
+                warning_text = await structure_other_warning(character, authed_preston,
+                                                             response_content.get("error", ""))
                 if interaction is not None:
                     await send_foreground_warning(interaction, warning_text)
                 if channel is not None:

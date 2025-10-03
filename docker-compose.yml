@@ -1,5 +1,4 @@
 services:
-
   timer:
     build: '.'
     restart: unless-stopped
@@ -8,8 +7,6 @@ services:
       .env
     volumes:
       - ./data:/data/
-    depends_on:
-      - postgres
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -20,12 +17,8 @@ services:
       - "traefik.http.services.timer-secure.loadbalancer.server.port=80"
     networks:
       - web
-      - timer-network
 volumes:
   data:
-  postgres_data:
 networks:
   web:
     external: true
-  timer-network:
-    driver: bridge

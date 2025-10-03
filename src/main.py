@@ -1,8 +1,10 @@
 import asyncio
 import functools
+import json
 import logging
 import os
 import secrets
+from io import BytesIO
 
 import discord
 from discord import Interaction, app_commands
@@ -12,11 +14,11 @@ from requests.exceptions import HTTPError
 
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
-from relay import notification_pings, status_pings, no_auth_pings
+from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_notifications
 from structure import structure_info_text
+from utils import lookup, get_channel, update_channel_if_broken
+from warning import esi_permission_warning, channel_warning, handle_structure_error
 from warning import send_foreground_warning
-from warning import esi_permission_warning, structure_permission_warning, structure_corp_warning, structure_other_warning, channel_warning
-from utils import lookup, get_channel
 
 # Configure the logger
 logger = logging.getLogger('discord.timer')
@@ -26,13 +28,15 @@ logger.setLevel(log_level)
 # Initialize the database
 initialize_database()
 
+
+# Setup ESI connection
 def refresh_token_callback(preston):
     character_id = preston.whoami()["character_id"]
     character = Character.get(character_id=character_id)
     character.token = preston.refresh_token
     character.save()
 
-# Setup ESI connection
+
 base_preston = Preston(
     user_agent="Structure timer discord bot by <larynx.austrene@gmail.com>",
     client_id=os.environ["CCP_CLIENT_ID"],
@@ -92,7 +96,7 @@ async def on_ready():
     # Start background tasks
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
-    # no_auth_pings.start(action_lock, bot)
+    cleanup_old_notifications.start(action_lock)
     callback_server.start(base_preston)
 
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
@@ -103,6 +107,9 @@ async def on_ready():
         logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
     await log_statistics()
+
+    await asyncio.sleep(60 * 60 * 5)  # Wait 5 hours
+    no_auth_pings.start(action_lock, bot)
 
 
 @bot.tree.command(name="auth", description="Sends you an authorization link for characters.")
@@ -156,6 +163,8 @@ async def callback(interaction: Interaction, channel: discord.TextChannel | None
 async def characters(interaction: Interaction):
     await interaction.response.defer(ephemeral=True)
     """Displays your currently authorized characters."""
+
+    await update_channel_if_broken(interaction, bot)
 
     character_names = []
     user = User.get_or_none(User.user_id == str(interaction.user.id))
@@ -241,6 +250,9 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
 @command_error_handler
 async def info(interaction: Interaction):
     await interaction.response.defer()
+
+    await update_channel_if_broken(interaction, bot)
+
     structures_info = {}
 
     user = User.get_or_none(User.user_id == str(interaction.user.id))
@@ -326,6 +338,58 @@ async def action(interaction: Interaction, text: str):
 
     await interaction.followup.send(f"Sent action text to {user_count} users. The message looks like the following:")
     await interaction.followup.send(text)
+
+
+@bot.tree.command(
+    name="debug",
+    description="Admin only: Look at ESI response for a character."
+)
+@app_commands.describe(
+    character_id="The EVE character ID to debug."
+)
+@command_error_handler
+async def debug(interaction: Interaction, character_id: int):
+    if int(interaction.user.id) != int(os.environ["ADMIN"]):
+        await interaction.response.send_message("You are not authorized to perform this action.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    character = Character.get_or_none(Character.character_id == character_id)
+    if not character:
+        await interaction.followup.send("Character not found in the database.", ephemeral=True)
+        return
+
+    try:
+        authed_preston = base_preston.authenticate_from_token(character.token)
+        whoami = authed_preston.whoami()
+        character_name = whoami.get("character_name", "Unknown")
+
+        structure_response = authed_preston.get_op(
+            "get_corporations_corporation_id_structures",
+            corporation_id=character.corporation_id,
+        )
+
+        notification_response = authed_preston.get_op(
+            "get_characters_character_id_notifications",
+            character_id=character.character_id
+        )
+
+        structure_bytes = BytesIO(json.dumps(structure_response, indent=2).encode('utf-8'))
+        notification_bytes = BytesIO(json.dumps(notification_response, indent=2).encode('utf-8'))
+
+        await interaction.user.send(
+            content=f"Raw ESI data for **{character_name}** (`{character_id}`):",
+            files=[
+                discord.File(structure_bytes, filename=f"character_{character_id}_structures.json"),
+                discord.File(notification_bytes, filename=f"character_{character_id}_notifications.json")
+            ]
+        )
+
+    except HTTPError as exp:
+        await interaction.followup.send(f"HTTPError: {exp.response.status_code} - {exp.response.text}", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"Unhandled exception: {e}", ephemeral=True)
 
 
 if __name__ == "__main__":

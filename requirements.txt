@@ -2,3 +2,4 @@ discord
 peewee
 preston
 psycopg2-binary
+python-dateutil
