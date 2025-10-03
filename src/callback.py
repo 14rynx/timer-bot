@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 
 from aiohttp import web
 from discord.ext import tasks
@@ -30,10 +31,6 @@ async def callback_server(preston: Preston):
         }
         
         try:
-            # Import here to avoid circular imports
-            import time
-            from datetime import datetime
-            
             # Test database connection with a simple query
             if db.is_closed():
                 db.connect()
@@ -41,17 +38,13 @@ async def callback_server(preston: Preston):
             # Try to execute a simple query to test the connection
             db.execute_sql("SELECT 1")
             
-            # Test if we can query our tables (this ensures tables exist and are accessible)
-            user_count = User.select().count()
-            
             health_status.update({
                 "status": "healthy",
                 "database": "connected",
-                "user_count": user_count,
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             })
             
-            logger.debug(f"Health check passed: {user_count} users in database")
+            logger.debug("Health check passed")
             return web.json_response(health_status, status=200)
             
         except Exception as e:

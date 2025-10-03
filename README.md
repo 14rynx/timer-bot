@@ -29,9 +29,6 @@ Note: This video is slightly outdated. The bot now uses `/` to start commands an
 Since we need to connect to both ESI and discord, there is sadly still some things to do.
 TLDR: Create an env file and fill it in with the CCP and Discord info, then run with docker compose.
 
-### Database Support
-The bot now supports both SQLite (default) and PostgreSQL databases. PostgreSQL is automatically included in the Docker Compose setup.
-
 1. Clone this repository
     ```shell
     git clone https://github.com/14rynx/timer-bot.git
@@ -52,19 +49,13 @@ The bot now supports both SQLite (default) and PostgreSQL databases. PostgreSQL 
     CCP_SECRET_KEY=your_ccp_secret_key_here
     CCP_REDIRECT_URI=https://yourdomain.com/callback
     
-    # Database Configuration
-    # Set to 'postgresql' to use PostgreSQL, or 'sqlite' (default) for SQLite
-    DB_TYPE=postgresql
-    DB_PASSWORD=your_secure_password_here
-    
-    # Optional PostgreSQL settings (defaults shown)
-    DB_HOST=postgres
-    DB_NAME=timer_bot
-    DB_USER=postgres
-    DB_PORT=5432
-    
-    # For SQLite (when DB_TYPE=sqlite)
-    DB_PATH=data/bot.sqlite
+    # Database Configuration (Optional - defaults to SQLite in data/bot.sqlite)
+    # To use PostgreSQL, set DB_HOST. If DB_HOST is not set, SQLite is used.
+    # DB_HOST=postgres
+    # DB_NAME=timer_bot
+    # DB_USER=postgres
+    # DB_PASSWORD=your_secure_password_here
+    # DB_PORT=5432
     
     # Logging
     LOG_LEVEL=INFO
@@ -88,7 +79,6 @@ The bot now supports both SQLite (default) and PostgreSQL databases. PostgreSQL 
     Now view the application and copy the values to your .env file as `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY`.
 
 5. Start the container.
-    The Docker Compose setup now includes PostgreSQL by default. Both configurations have been updated to support the new database options.
     
     + If you run traefik as a reverse-proxy externally:
       ```shell
@@ -102,8 +92,4 @@ The bot now supports both SQLite (default) and PostgreSQL databases. PostgreSQL 
       docker-compose up -d --build -f docker-compose+traefik.yml
       ```
 
-    **Note**: When using PostgreSQL (`DB_TYPE=postgresql`), the bot will automatically connect to the PostgreSQL container. When using SQLite (`DB_TYPE=sqlite`), the bot will use the local SQLite file as before.
-
-### Migrating from SQLite to PostgreSQL
-
-Migration is not supported.
+    **Note**: By default, the bot uses SQLite (`data/bot.sqlite`). To use PostgreSQL instead, set `DB_HOST=postgres` and `DB_PASSWORD` in your .env file. The Docker Compose setup includes a PostgreSQL container when needed.

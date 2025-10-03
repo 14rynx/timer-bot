@@ -1,18 +1,22 @@
 import os
 from peewee import *
-from playhouse.pool import PooledPostgresqlDatabase, PooledSqliteDatabase
+from playhouse.pool import PooledPostgresqlDatabase
 
 # Initialize the database based on environment variables
 def get_database():
-    """Get database instance based on environment configuration."""
-    db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+    """Get database instance based on environment configuration.
     
-    if db_type == 'postgresql':
+    If DB_HOST is set, uses PostgreSQL. Otherwise defaults to SQLite.
+    """
+    db_host = os.getenv('DB_HOST')
+    
+    if db_host:
+        # Use PostgreSQL when DB_HOST is specified
         return PooledPostgresqlDatabase(
             os.getenv('DB_NAME', 'timer_bot'),
             user=os.getenv('DB_USER', 'postgres'),
             password=os.getenv('DB_PASSWORD', ''),
-            host=os.getenv('DB_HOST', 'localhost'),
+            host=db_host,
             port=int(os.getenv('DB_PORT', '5432')),
             max_connections=20,  # Maximum number of connections in the pool
             stale_timeout=300,   # Seconds a connection can remain unused before being closed
@@ -21,8 +25,8 @@ def get_database():
             autocommit=True      # Automatically commit transactions
         )
     else:
-        # Default to SQLite
-        return SqliteDatabase(os.getenv('DB_PATH', 'data/bot.sqlite'))
+        # Default to SQLite in data/ directory
+        return SqliteDatabase('data/bot.sqlite')
 
 db = get_database()
 

@@ -1,16 +1,4 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    container_name: timer-bot-postgres
-    environment:
-      POSTGRES_DB: timer_bot
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - timer-network
 
   timer:
     build: '.'
@@ -18,13 +6,6 @@ services:
     container_name: timer-bot
     env_file:
       .env
-    environment:
-      - DB_TYPE=${DB_TYPE:-sqlite}
-      - DB_HOST=${DB_HOST:-postgres}
-      - DB_NAME=${DB_NAME:-timer_bot}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_PORT=${DB_PORT:-5432}
     volumes:
       - ./data:/data/
     depends_on:
