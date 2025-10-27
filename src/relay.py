@@ -1,6 +1,6 @@
 import collections
 import logging
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, UTC
 
 from discord.ext import tasks
 from requests.exceptions import HTTPError, ConnectionError
@@ -26,8 +26,10 @@ notification_phase = -1
 status_phase = -1
 
 
-def is_server_downtime_now():
-    now_utc = datetime.utcnow().time()
+def is_server_downtime_now(extended=False):
+    now_utc = datetime.now(UTC).time()
+    if extended:
+        return time(11, 0) <= now_utc < time(12, 0)
     return time(11, 0) <= now_utc < time(11, 10)
 
 
@@ -66,36 +68,39 @@ async def notification_pings(action_lock, preston, bot):
                     return
 
                 try:
-                    authed_preston = preston.authenticate_from_token(character.token)
-                except HTTPError as exp:
-                    await handle_auth_error(character, user_channel, preston, exp)
-                    continue
+                    try:
+                        authed_preston = preston.authenticate_from_token(character.token)
+                    except HTTPError as exp:
+                        await handle_auth_error(character, user_channel, preston, exp)
+                        continue
+                    try:
+                        response = authed_preston.get_op(
+                            "get_characters_character_id_notifications",
+                            character_id=character.character_id,
+                        )
+                    except HTTPError as exp:
+                        await handle_notification_error(character, exp)
+                        continue
                 except ConnectionError as exp:
-                    # Network issue, we are fine with a warning
-                    logger.warning(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
-                    continue
-
-                try:
-                    response = authed_preston.get_op(
-                        "get_characters_character_id_notifications",
-                        character_id=character.character_id,
-                    )
-                except ConnectionError:
-                    logger.warning(f"Got a network error with {character}, skipping...")
-                except HTTPError as exp:
-                    await handle_notification_error(character, exp)
+                    if not is_server_downtime_now(extended=True):
+                        logger.warning(
+                            f"notification_pings got a ConnectionError ({exp.response.status_code}: {exp.response.text})"
+                            f" for {character}, skipping..."
+                        )
                 except Exception as e:
-                    logger.error(f"Got an unfamiliar exceptions when fetching notifications for {character}: {e}.",
-                                 exc_info=True)
+                    logger.error(
+                        f"notification_pings got an unfamiliar exception for {character}: {e}.",  exc_info=True
+                    )
                 else:
                     for notification in reversed(response):
-                        await send_notification_message(notification, user_channel, authed_preston,
-                                                    identifier=str(character))
+                        await send_notification_message(
+                            notification, user_channel, authed_preston, identifier=str(character)
+                        )
             except Exception as e:
-                logger.error(f"Got an unhandled exception in notification_pings: {e}.", exc_info=True)
+                logger.error(f"notification_pings got an unhandled exception for {character}: {e}.", exc_info=True)
 
     except Exception as e:
-        logger.error(f"Got an unhandled exception in notification_pings SCHEDULING: {e}.", exc_info=True)
+        logger.error(f"notification_pings SCHEDULING got an unhandled exception: {e}.", exc_info=True)
 
 
 @tasks.loop(seconds=STATUS_CACHE_TIME // STATUS_PHASES + 1)
@@ -116,44 +121,47 @@ async def status_pings(action_lock, preston, bot):
                     continue
 
                 try:
-                    authed_preston = preston.authenticate_from_token(character.token)
-                except HTTPError as exp:
-                    await handle_auth_error(character, user_channel, preston, exp)
-                    continue
+                    try:
+                        authed_preston = preston.authenticate_from_token(character.token)
+                    except HTTPError as exp:
+                        await handle_auth_error(character, user_channel, preston, exp)
+                        continue
+                    try:
+                        response = authed_preston.get_op(
+                            "get_corporations_corporation_id_structures",
+                            corporation_id=character.corporation_id,
+                        )
+                    except HTTPError as exp:
+                        await handle_structure_error(character, authed_preston, exp, channel=user_channel)
+                        continue
                 except ConnectionError as exp:
-                    # Network issue, we are fine with a warning
-                    logger.warning(f"{character} got {exp.response.status_code} response {exp.response.text}, skipping...")
-                    continue
-
-                try:
-                    response = authed_preston.get_op(
-                        "get_corporations_corporation_id_structures",
-                        corporation_id=character.corporation_id,
-                    )
-                except ConnectionError:
-                    logger.warning(f"Got a network error with {character}, skipping...")
-                except HTTPError as exp:
-                    await handle_structure_error(character, authed_preston, exp, channel=user_channel)
+                    if not is_server_downtime_now(extended=True):
+                        logger.warning(
+                            f"status_pings got a ConnectionError ({exp.response.status_code}: {exp.response.text})"
+                            f" for {character}, skipping..."
+                        )
                 except Exception as e:
-                    logger.error(f"Got an unfamiliar exceptions when fetching structures for {character}: {e}.",
-                                 exc_info=True)
+                    logger.error(
+                        f"status_pings got an unfamiliar exception for {character}: {e}.", exc_info=True
+                    )
                 else:
                     for structure in response:
                         await send_structure_message(structure, user_channel, identifier=str(character))
             except Exception as e:
-                logger.error(f"Got an unhandled exception in status_pings: {e}.", exc_info=True)
+                logger.error(f"status_pings got an unhandled exception for {character}: {e}.", exc_info=True)
 
     except Exception as e:
-        logger.error(f"Got an unhandled exception in status_pings SCHEDULING: {e}.", exc_info=True)
+        logger.error(f"status_pings SCHEDULING got an unhandled exception: {e}.", exc_info=True)
 
 
 @tasks.loop(hours=42)
 async def no_auth_pings(action_lock, bot):
-    """Periodically remind users that dont have characters linked so they don't get suprised."""
+    """Periodically remind users that don't have characters linked so they don't get surprised."""
     async with action_lock:
         try:
             for user in User.select():
                 if not user.characters.exists():
+                    # noinspection PyBroadException
                     try:
                         user_channel = await bot.fetch_channel(int(user.callback_channel_id))
                     except Exception:
@@ -168,9 +176,10 @@ async def no_auth_pings(action_lock, bot):
                         f"- Otherwise add some character with `/auth`"
                     )
 
+                    # noinspection PyBroadException
                     try:
                         await user_channel.send(warning_text)
-                    except Exception as e:
+                    except Exception:
                         # There is nothing to salvage for this user anyway
                         continue
 
@@ -183,8 +192,8 @@ async def cleanup_old_notifications(action_lock):
     """Delete notifications older than 4 weeks."""
     async with action_lock:
         try:
-            threshold = datetime.utcnow() - timedelta(days=2)
+            threshold = datetime.now(UTC) - timedelta(days=2)
             deleted = Notification.delete().where(Notification.timestamp < threshold).execute()
-            logger.info(f"Deleted {deleted} old notifications older than 2 days.")
+            logger.debug(f"cleanup_old_notifications() deleted {deleted} old notifications older than 2 days.")
         except Exception as e:
-            logger.error(f"Error while deleting old notifications: {e}")
+            logger.error(f"cleanup_old_notifications() unhandled exception: {e}", exc_info=True)

@@ -16,7 +16,7 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_notifications
 from structure import structure_info_text
-from utils import lookup, get_channel, update_channel_if_broken
+from utils import get_channel, update_channel_if_broken
 from warning import esi_permission_warning, channel_warning, handle_structure_error
 from warning import send_foreground_warning
 
@@ -68,7 +68,7 @@ async def log_statistics():
                 f"User ID: {user.user_id}, Linked Channel: {user.callback_channel_id}, Character IDs: {character_list}")
 
     except Exception as e:
-        logger.error(f"Error while logging users and characters: {e}")
+        logger.error(f"log_statistics() error while logging users and characters: {e}", exc_info=True)
 
 
 def command_error_handler(func):
@@ -99,12 +99,12 @@ async def on_ready():
     cleanup_old_notifications.start(action_lock)
     callback_server.start(base_preston)
 
-    logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    logger.info(f"on_ready() logged in as {bot.user} (ID: {bot.user.id})")
     try:
         synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} slash commands.")
+        logger.info(f"on_ready() synced {len(synced)} slash commands.")
     except Exception as e:
-        logger.error(f"Failed to sync commands: {e}", exc_info=True)
+        logger.error(f"on_ready() failed to sync slash commands: {e}", exc_info=True)
 
     await log_statistics()
 
@@ -125,6 +125,7 @@ async def auth(interaction: Interaction):
     Challenge.create(user=user, state=secret_state)
 
     full_link = base_preston.get_authorize_url(secret_state)
+    # noinspection PyUnresolvedReferences
     await interaction.response.send_message(
         f"Use this [authentication link]({full_link}) to authorize your characters.", ephemeral=True
     )
@@ -132,7 +133,7 @@ async def auth(interaction: Interaction):
 
 @bot.tree.command(name="callback", description="Sets the channel where you want to be notified if something happens.")
 @app_commands.describe(
-    channel="Discord Channel where you want to recieve structure information, of not given uses the current one.",
+    channel="Discord Channel where you want to receive structure information, of not given uses the current one.",
 )
 @command_error_handler
 async def callback(interaction: Interaction, channel: discord.TextChannel | None = None):
@@ -142,6 +143,7 @@ async def callback(interaction: Interaction, channel: discord.TextChannel | None
     """
     user = User.get_or_none(user_id=str(interaction.user.id))
     if user is None:
+        # noinspection PyUnresolvedReferences
         await interaction.response.send_message(
             "You are not a registered user. Use `!auth` to authorize some characters first."
         )
@@ -153,14 +155,17 @@ async def callback(interaction: Interaction, channel: discord.TextChannel | None
 
     if isinstance(target_channel, discord.DMChannel):
         await send_foreground_warning(interaction, await channel_warning(user))
+        # noinspection PyUnresolvedReferences
         await interaction.response.send_message(f"Set this DM-channel as callback for notifications.")
     else:
+        # noinspection PyUnresolvedReferences
         await interaction.response.send_message(f"Set {target_channel.mention} as callback for notifications.")
 
 
 @bot.tree.command(name="characters", description="Shows all authorized characters")
 @command_error_handler
 async def characters(interaction: Interaction):
+    # noinspection PyUnresolvedReferences
     await interaction.response.defer(ephemeral=True)
     """Displays your currently authorized characters."""
 
@@ -204,6 +209,7 @@ async def characters(interaction: Interaction):
 )
 @command_error_handler
 async def revoke(interaction: Interaction, character_name: str | None = None):
+    # noinspection PyUnresolvedReferences
     await interaction.response.defer(ephemeral=True)
     user = User.get_or_none(User.user_id == str(interaction.user.id))
 
@@ -222,25 +228,34 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
         user.delete_instance()
 
         await interaction.followup.send(f"Successfully revoked access to all your characters.", ephemeral=True)
+        return
 
-    else:
+    try:
+        character_id = int(character_name)
+    except ValueError:
         try:
-            character_id = await lookup(base_preston, character_name, return_type="characters")
-        except ValueError:
+            result = base_preston.post_op(
+                'post_universe_ids',
+                path_data={},
+                post_data=[character_name]
+            )
+            character_id = int(max(result["characters"], key=lambda x: x["id"])["id"])
+        except (ValueError, KeyError):
             await  interaction.followup.send(
                 f"Args `{character_name}` could not be parsed or looked up.",
                 ephemeral=True
             )
-        else:
-            character = user.characters.select().where(Character.character_id == character_id).first()
-            if character:
-                character.delete_instance()
-                await interaction.followup.send(f"Successfully removed {character_name}.", ephemeral=True)
-            else:
-                await interaction.followup.send(
-                    "You have no character named {character_name} linked.",
-                    ephemeral=True
-                )
+            return
+
+    character = user.characters.select().where(Character.character_id == character_id).first()
+    if character:
+        character.delete_instance()
+        await interaction.followup.send(f"Successfully removed {character_name}.", ephemeral=True)
+    else:
+        await interaction.followup.send(
+            "You have no character named {character_name} linked.",
+            ephemeral=True
+        )
 
 
 @bot.tree.command(
@@ -249,6 +264,7 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
 )
 @command_error_handler
 async def info(interaction: Interaction):
+    # noinspection PyUnresolvedReferences
     await interaction.response.defer()
 
     await update_channel_if_broken(interaction, bot)
@@ -262,7 +278,7 @@ async def info(interaction: Interaction):
                 authed_preston = base_preston.authenticate_from_token(character.token)
             except HTTPError as exp:
                 if exp.response.status_code == 401:
-                    await send_foreground_warning(interaction, esi_permission_warning(character, base_preston))
+                    await send_foreground_warning(interaction, await esi_permission_warning(character, base_preston))
                     continue
                 else:
                     raise
@@ -272,26 +288,20 @@ async def info(interaction: Interaction):
                     'get_characters_character_id',
                     character_id=character.character_id
                 ).get("corporation_id")
-            except ConnectionError:
-                logger.warning(f"Got a network error with {character}, skipping...")
-                await interaction.followup.send("Network error with /info command, try again later")
-            except Exception as e:
-                await interaction.followup.send(f"Got an unfamiliar with /info for {character}: {e}.")
-                logger.error(f"Got an unfamiliar with /info for {character}: {e}.", exc_info=True)
-
-            try:
                 structure_response = authed_preston.get_op(
                     "get_corporations_corporation_id_structures",
                     corporation_id=corporation_id,
                 )
             except ConnectionError:
-                logger.warning(f"Got a network error with {character}, skipping...")
+                logger.warning(f"/info got a network error got {character}")
                 await interaction.followup.send("Network error with /info command, try again later")
+                return
             except HTTPError as exp:
                 await handle_structure_error(character, authed_preston, exp, interaction=interaction)
             except Exception as e:
-                await interaction.followup.send(f"Got an unfamiliar with /info for {character}: {e}.")
-                logger.error(f"Got an unfamiliar with /info for {character}: {e}.", exc_info=True)
+                await interaction.followup.send(f"Got an unfamiliar error in /info command: {e}.")
+                logger.error(f"/info got an unfamiliar error with {character}: {e}.", exc_info=True)
+                return
             else:
                 for structure in structure_response:
                     structure_id = structure.get("structure_id")
@@ -318,9 +328,11 @@ async def info(interaction: Interaction):
 async def action(interaction: Interaction, text: str):
     """Admin only: send a message to all users concerning the bot."""
     if int(interaction.user.id) != int(os.environ["ADMIN"]):
+        # noinspection PyUnresolvedReferences
         await interaction.response.send_message("You are not authorized to perform this action.")
         return
 
+    # noinspection PyUnresolvedReferences
     await interaction.response.send_message("Sending action text...")
 
     used_channels = set()
@@ -333,7 +345,7 @@ async def action(interaction: Interaction, text: str):
                 used_channels.add(channel.id)
         except discord.errors.Forbidden:
             await interaction.followup.send(f"Could not reach user {user}.")
-            logger.info(f"Could not reach user {user}.")
+            logger.info(f"/action could not reach user {user}.")
         user_count += 1
 
     await interaction.followup.send(f"Sent action text to {user_count} users. The message looks like the following:")
@@ -350,9 +362,11 @@ async def action(interaction: Interaction, text: str):
 @command_error_handler
 async def debug(interaction: Interaction, character_id: int):
     if int(interaction.user.id) != int(os.environ["ADMIN"]):
+        # noinspection PyUnresolvedReferences
         await interaction.response.send_message("You are not authorized to perform this action.", ephemeral=True)
         return
 
+    # noinspection PyUnresolvedReferences
     await interaction.response.defer(ephemeral=True)
 
     character = Character.get_or_none(Character.character_id == character_id)

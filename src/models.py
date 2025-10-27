@@ -1,6 +1,6 @@
 import os
 from peewee import *
-from datetime import datetime
+from datetime import datetime, UTC
 from playhouse.pool import PooledPostgresqlDatabase
 
 # Initialize the database based on environment variables
@@ -83,7 +83,7 @@ class Structure(BaseModel):
 
 class Migration(BaseModel):
     name = CharField(unique=True)
-    applied_at = DateTimeField(default=datetime.utcnow)
+    applied_at = DateTimeField(default=lambda: datetime.now(UTC))
 
 
 def initialize_database():

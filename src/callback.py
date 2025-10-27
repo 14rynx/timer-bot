@@ -134,4 +134,9 @@ async def callback_server(preston: Preston):
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, port=int(os.getenv('CALLBACK_PORT', '80')))
-    await site.start()
+    try:
+        await site.start()
+    except OSError:
+        return # Callback already running
+    else:
+        logger.info("callback_server started")
