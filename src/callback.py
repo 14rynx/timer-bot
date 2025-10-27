@@ -7,7 +7,7 @@ from aiohttp import web
 from discord.ext import tasks
 from preston import Preston
 
-from models import User, Character, Challenge, Notification
+from models import User, Character, Challenge, Notification, db
 from notification import is_structure_notification
 
 # Configure the logger
@@ -21,6 +21,43 @@ async def callback_server(preston: Preston):
     @routes.get('/')
     async def hello(request):
         return web.Response(text="Timer Bot Callback Server (https://github.com/14rynx/timer-bot)")
+
+    @routes.get('/health')
+    async def health(request):
+        """Health check endpoint that verifies database connectivity."""
+        health_status = {
+            "status": "healthy",
+            "database": "unknown",
+            "timestamp": None
+        }
+        
+        try:
+            # Test database connection with a simple query
+            if db.is_closed():
+                db.connect()
+            
+            # Try to execute a simple query to test the connection
+            db.execute_sql("SELECT 1")
+            
+            health_status.update({
+                "status": "healthy",
+                "database": "connected",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            })
+            
+            logger.debug("Health check passed")
+            return web.json_response(health_status, status=200)
+            
+        except Exception as e:
+            health_status.update({
+                "status": "unhealthy",
+                "database": "disconnected",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            })
+            
+            logger.warning(f"Health check failed: {e}")
+            return web.json_response(health_status, status=503)
 
     @routes.get('/callback/')
     async def callback(request):

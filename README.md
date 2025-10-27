@@ -28,6 +28,7 @@ Note: This video is slightly outdated. The bot now uses `/` to start commands an
 
 Since we need to connect to both ESI and discord, there is sadly still some things to do.
 TLDR: Create an env file and fill it in with the CCP and Discord info, then run with docker compose.
+
 1. Clone this repository
     ```shell
     git clone https://github.com/14rynx/timer-bot.git
@@ -38,20 +39,31 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
     cp .env.example .env
     ```
 
-3. Head over to the [Discord Developers Website](https://discord.com/developers/) and create yourself an application.
+3. (Optional) To use PostgreSQL instead of SQLite, add the following to your .env file:
+    ```bash
+    DB_HOST=postgres
+    DB_NAME=timer_bot
+    DB_USER=postgres
+    DB_PASSWORD=your_secure_password_here
+    DB_PORT=5432
+    ```
+    
+    If `DB_HOST` is not set, the bot will use SQLite (`data/bot.sqlite`) by default.
+
+4. Head over to the [Discord Developers Website](https://discord.com/developers/) and create yourself an application.
     - Go to the "Bot" section and reset the token, then copy the new one. Put it in the .env file (`DISCORD_TOKEN=`).
     - Enable the "Message Content Intent" in the Bot section.
     - Invite your bot to your server in the "OAuth2" section. In the URL Generator, click on "Bot" and then
     further down "Send Messages" and "Read Mesasges/View Channels". Follow the generated URL and add the bot to your server.
 
-4. Head over to the [Eve onlone Developers Page](https://developers.eveonline.com/) and create yourself an application.
+5. Head over to the [Eve onlone Developers Page](https://developers.eveonline.com/) and create yourself an application.
     - Under "Application Type" select "Authentication & API Access"
     - Under "Permissions" add `esi-universe.read_structures.v1, esi-corporations.read_structures.v1, esi-characters.read_notifications.v1`
     - Under "Callback URL" set `https://yourdomain.com/callback/` (obviously replace your domain)
 
     Now view the application and copy the values `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY` to your .env file.
 
-5. Start the container.
+6. Start the container.
     + If you run traefik as a reverse-proxy externally:
       ```shell
       docker-compose up -d --build
@@ -64,7 +76,7 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
       docker-compose up -d --build -f docker-compose+traefik.yml
       ```
 
-6. You can now invite the bot to your server and continue like the public instance.
+7. You can now invite the bot to your server and continue like the public instance.
    You should be able to get an invite link from the discord admin panel, or you can fill in the blank in this one
    ```
    https://discord.com/oauth2/authorize?client_id=<YOUR_CLIENT_ID_GOES_HERE>&permissions=3072&scope=bot
