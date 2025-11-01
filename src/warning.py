@@ -7,6 +7,7 @@ from discord import Interaction
 from preston import Preston
 
 from models import Character
+from utils import send_background_message
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.warnings')
@@ -16,7 +17,7 @@ no_channel_characters = set()
 disconnected_character_cycles = defaultdict(int)
 
 
-async def send_background_warning(channel, warning: tuple[str, str], quiet: bool = False):
+async def send_background_warning(bot, user, warning: tuple[str, str], quiet: bool = False):
     """Send a warning message to a user from a background process, making sure
     not to repeat the warning to many times and spamming the user"""
 
@@ -26,17 +27,11 @@ async def send_background_warning(channel, warning: tuple[str, str], quiet: bool
         logger.debug(f"Received warning {log_text}, waiting for next window at {sent_warnings[log_text]}")
         return True
     else:
-        try:
-            await channel.send(warning_text)
-            logger.info(f"Sent warning {log_text}.")
-        except Exception as e:
-            if not quiet:
-                logger.warning(f"Could not send warning {log_text}: {e}")
-            return False
-        else:
-            # Mark this exact warning as already sent
+        if await send_background_message(bot, user, warning_text, quiet=quiet):
             sent_warnings[log_text] = (datetime.now(tz=timezone.utc) + timedelta(days=1)).timestamp()
             return True
+        else:
+            return False
 
 
 async def send_foreground_warning(interaction: Interaction, warning: tuple[str, str]):
@@ -137,17 +132,29 @@ async def channel_warning(user):
     return warning_text, log_text
 
 
+async def updated_channel_warning(user, channel):
+    """A warning that the channel might not be reachable anymore"""
+    warning_text = (
+        "### WARNING\n"
+        f"<@{user.user_id}>, the channel you were using for timer-bot callbacks was no longer reachable,"
+        f"so the channel {channel.mention} is now used instead. Use /callback to set up a different channel."
+    )
+
+    log_text = f"updated_channel_warning for {user}"
+    return warning_text, log_text
+
+
 async def no_channel_anymore_log(character):
     if character not in no_channel_characters:
         logger.info(f"{character} has no valid channel and can not be notified, skipping...")
         no_channel_characters.add(character)
 
 
-async def handle_auth_error(character, channel, preston, exception):
+async def handle_auth_error(character, bot, user, preston, exception):
     if exception.response is not None:
         if exception.response.status_code == 400 or exception.response.status_code == 401:
             success = await send_background_warning(
-                channel,
+                bot, user,
                 await esi_permission_warning(character, preston)
             )
 
@@ -171,7 +178,7 @@ async def handle_auth_error(character, channel, preston, exception):
             f"{character} encountered HTTPError with no response attached when trying to authenticate: {exception}")
 
 
-async def handle_structure_error(character, authed_preston, exception, channel=None, interaction=None):
+async def handle_structure_error(character, authed_preston, exception, bot=None, user=None, interaction=None):
     if exception.response is not None:
         response_content = exception.response.json()
         match response_content.get("error", ""):
@@ -179,8 +186,8 @@ async def handle_structure_error(character, authed_preston, exception, channel=N
                 warning_text = await structure_permission_warning(character, authed_preston)
                 if interaction is not None:
                     await send_foreground_warning(interaction, warning_text)
-                if channel is not None:
-                    await send_background_warning(channel, warning_text)
+                if bot is not None and user is not None:
+                    await send_background_warning(bot, user, warning_text)
             case "Character is not in the corporation":
                 # See if character changed corporation and update
                 character_new_corporation = authed_preston.get_op(
@@ -193,8 +200,8 @@ async def handle_structure_error(character, authed_preston, exception, channel=N
                     warning_text = await structure_corp_warning(character, authed_preston)
                     if interaction is not None:
                         await send_foreground_warning(interaction, warning_text)
-                    if channel is not None:
-                        await send_background_warning(channel, warning_text)
+                    if bot is not None and user is not None:
+                        await send_background_warning(bot, user, warning_text)
                 else:
                     character.corporation_id = character_new_corporation
                     character.save()
@@ -206,8 +213,8 @@ async def handle_structure_error(character, authed_preston, exception, channel=N
                                                              response_content.get("error", ""))
                 if interaction is not None:
                     await send_foreground_warning(interaction, warning_text)
-                if channel is not None:
-                    await send_background_warning(channel, warning_text)
+                if bot is not None and user is not None:
+                    await send_background_warning(bot, user, warning_text)
 
     else:
         logger.warning(

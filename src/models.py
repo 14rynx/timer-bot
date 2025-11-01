@@ -40,6 +40,7 @@ class BaseModel(Model):
 class User(BaseModel):
     user_id = CharField(primary_key=True)
     callback_channel_id = CharField()
+    unreachable = BooleanField(default=False)
 
     def __repr__(self):
         return f"User(user_id={self.user_id}, callback_channel_id={self.callback_channel_id})"
