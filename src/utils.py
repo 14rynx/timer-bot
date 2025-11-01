@@ -2,9 +2,6 @@ import logging
 
 import discord
 
-from models import User
-from warning import channel_warning, send_background_warning, send_foreground_warning, updated_channel_warning
-
 logger = logging.getLogger('discord.timer.utils')
 
 no_channel_users = set()
