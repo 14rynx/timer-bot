@@ -65,6 +65,7 @@ async def send_background_message(bot, user, message, identifier="<no identifier
                 f"Recipient Identifier: {identifier}\n"
                 f"Message: {message}"
             )
+            no_channel_users.add(user)
         return False
     except Exception as e:
         if not quiet:
@@ -73,4 +74,5 @@ async def send_background_message(bot, user, message, identifier="<no identifier
                 f"Recipient Identifier: {identifier}\n"
                 f"Message: {message}", exc_info=True
             )
+            no_channel_users.add(user)
         return False
