@@ -5,6 +5,7 @@ from preston import Preston
 
 import dateutil.parser
 from models import Notification
+from utils import send_background_message
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.notification')
@@ -127,7 +128,7 @@ def is_structure_notification(notification: dict) -> bool:
     return "Structure" in notification.get('type')
 
 
-async def send_notification_message(notification, user_channel, authed_preston, identifier="<no identifier>"):
+async def send_notification_message(notification, bot, user, authed_preston, identifier="<no identifier>"):
     """For a notification from ESI take action and inform a user if required"""
     notification_id = notification.get("notification_id")
     timestamp = dateutil.parser.isoparse(notification.get("timestamp"))
@@ -139,25 +140,13 @@ async def send_notification_message(notification, user_channel, authed_preston, 
     notif, created = Notification.get_or_create(notification_id=notification_id, timestamp=timestamp)
 
     if is_structure_notification(notification):
-        if not notif.sent:
-            try:
-                if len(message := structure_notification_text(notification, authed_preston)) > 0:
-                    await user_channel.send(message)
-                    logger.debug(f"Sent structure notification to {identifier}")
-            except Exception as e:
-                logger.warning(f"Could not send structure notification to {identifier}: {e}")
-            else:
+        if not notif.sent and len(message := structure_notification_text(notification, authed_preston)) > 0:
+            if await send_background_message(bot, user, message, identifier):
                 notif.sent = True
                 notif.save()
 
     if is_poco_notification(notification):
-        if not notif.sent:
-            try:
-                if len(message := poco_notification_text(notification, authed_preston)) > 0:
-                    await user_channel.send(message)
-                    logger.debug(f"Sent POCO notification to {identifier}")
-            except Exception as e:
-                logger.error(f"Could not send POCO notification to {identifier}: {e}", exc_info=True)
-            else:
+        if not notif.sent and len(message := poco_notification_text(notification, authed_preston)) > 0:
+            if await send_background_message(bot, user, message, identifier):
                 notif.sent = True
                 notif.save()
