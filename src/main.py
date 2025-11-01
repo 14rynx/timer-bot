@@ -97,7 +97,7 @@ async def on_ready():
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
     cleanup_old_notifications.start(action_lock)
-    callback_server.start(base_preston)
+    callback_server.start(bot, base_preston)
 
     logger.info(f"on_ready() logged in as {bot.user} (ID: {bot.user.id})")
     try:

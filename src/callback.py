@@ -9,13 +9,14 @@ from preston import Preston
 
 from models import User, Character, Challenge, Notification, db
 from notification import is_structure_notification
+from utils import no_channel_users
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.callback')
 
 
 @tasks.loop()
-async def callback_server(preston: Preston):
+async def callback_server(bot, preston: Preston):
     routes = web.RouteTableDef()
 
     @routes.get('/')
@@ -128,6 +129,34 @@ async def callback_server(preston: Preston):
             return web.Response(text=f"Successfully authenticated {character_name}!")
         else:
             return web.Response(text=f"Successfully re-authenticated {character_name}!")
+
+    @routes.get('/unreachable')
+    async def unreachable(request):
+        """Return list of users who currently have no valid channel."""
+
+        users_data = []
+        for u in no_channel_users:
+            user_id = getattr(u, "user_id", None)
+            if not user_id:
+                continue
+
+            discord_user = None
+            try:
+                discord_user = await bot.fetch_user(int(user_id))
+            except Exception as e:
+                logger.debug(f"Failed to fetch user {user_id}: {e}")
+
+            users_data.append({
+                "user_id": str(user_id),
+                "handle": f"{discord_user}" if discord_user else "<unknown>",
+                "name": getattr(discord_user, "name", None),
+                "discriminator": getattr(discord_user, "discriminator", None),
+            })
+
+        return web.json_response({
+            "count": len(users_data),
+            "users": users_data
+        })
 
     app = web.Application()
     app.add_routes(routes)
