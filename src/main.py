@@ -16,8 +16,8 @@ from callback import callback_server
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_notifications
 from structure import structure_info_text
-from utils import get_channel, update_channel_if_broken
-from warning import esi_permission_warning, channel_warning, handle_structure_error
+from utils import send_background_message
+from warning import esi_permission_warning, channel_warning, handle_structure_error, updated_channel_warning
 from warning import send_foreground_warning
 
 # Configure the logger
@@ -160,6 +160,32 @@ async def callback(interaction: Interaction, channel: discord.TextChannel | None
     else:
         # noinspection PyUnresolvedReferences
         await interaction.response.send_message(f"Set {target_channel.mention} as callback for notifications.")
+
+
+async def update_channel_if_broken(interaction, bot):
+    user = User.get_or_none(user_id=str(interaction.user.id))
+    if user is None:
+        return
+
+    try:
+        await bot.fetch_channel(int(user.callback_channel_id))
+        return
+    except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException,
+            discord.errors.InvalidData) as e:
+        logger.info(f"update_channel_if_broken() fixed channel for {user}, broken by {e}")
+    except Exception as e:
+        logger.warning(
+            f"update_channel_if_broken() channel broken in a different way than expected for user {user}: {e}",
+            exc_info=True)
+
+    target_channel = interaction.channel
+    user.callback_channel_id = str(target_channel.id)
+    user.save()
+
+    await send_foreground_warning(interaction, await updated_channel_warning(user, target_channel))
+
+    if isinstance(target_channel, discord.DMChannel):
+        await send_foreground_warning(interaction, await channel_warning(user))
 
 
 @bot.tree.command(name="characters", description="Shows all authorized characters")
@@ -339,10 +365,8 @@ async def action(interaction: Interaction, text: str):
     user_count = 0
     for user in User.select():
         try:
-            channel = await get_channel(user, bot)
-            if channel is not None and channel.id not in used_channels:
-                await channel.send(text)
-                used_channels.add(channel.id)
+            if await send_background_message(bot, user, text):
+                used_channels.add(user.callback_channel_id)
         except discord.errors.Forbidden:
             await interaction.followup.send(f"Could not reach user {user}.")
             logger.info(f"/action could not reach user {user}.")
