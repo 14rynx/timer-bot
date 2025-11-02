@@ -2,8 +2,8 @@ import collections
 import logging
 from datetime import datetime, time, timedelta, UTC
 
+import aiohttp
 from discord.ext import tasks
-from requests.exceptions import HTTPError, ConnectionError
 
 from models import Character, User, Notification
 from notification import send_notification_message
@@ -66,22 +66,22 @@ async def notification_pings(action_lock, preston, bot):
     async for character in schedule_characters(action_lock, notification_phase, NOTIFICATION_PHASES):
         try:
             try:
-                authed_preston = preston.authenticate_from_token(character.token)
-            except HTTPError as exp:
+                authed_preston = await preston.authenticate_from_token(character.token)
+            except aiohttp.ClientResponseError as exp:
                 await handle_auth_error(character, bot, character.user, preston, exp)
                 continue
             try:
-                response = authed_preston.get_op(
+                response = await authed_preston.get_op(
                     "get_characters_character_id_notifications",
                     character_id=character.character_id,
                 )
-            except HTTPError as exp:
+            except aiohttp.ClientResponseError as exp:
                 await handle_notification_error(character, exp)
                 continue
-        except ConnectionError as exp:
+        except aiohttp.ClientConnectionError as exp:
             if not is_server_downtime_now(extended=True):
                 logger.warning(
-                    f"notification_pings information gathering got a ConnectionError ({exp.response.status_code}: {exp.response.text})"
+                    f"notification_pings information gathering got a ClientConnectionError"
                     f" for {character}, skipping..."
                 )
         except Exception as e:
@@ -109,22 +109,22 @@ async def status_pings(action_lock, preston, bot):
     async for character in schedule_characters(action_lock, status_phase, STATUS_PHASES):
         try:
             try:
-                authed_preston = preston.authenticate_from_token(character.token)
-            except HTTPError as exp:
+                authed_preston = await preston.authenticate_from_token(character.token)
+            except aiohttp.ClientResponseError as exp:
                 await handle_auth_error(character, bot, character.user, preston, exp)
                 continue
             try:
-                response = authed_preston.get_op(
+                response = await authed_preston.get_op(
                     "get_corporations_corporation_id_structures",
                     corporation_id=character.corporation_id,
                 )
-            except HTTPError as exp:
+            except aiohttp.ClientResponseError as exp:
                 await handle_structure_error(character, authed_preston, exp, bot=bot, user=character.user)
                 continue
-        except ConnectionError as exp:
+        except aiohttp.ClientConnectionError as exp:
             if not is_server_downtime_now(extended=True):
                 logger.warning(
-                    f"status_pings information gathering got a ConnectionError ({exp.response.status_code}: {exp.response.text})"
+                    f"status_pings information gathering got a ClientConnectionError"
                     f" for {character}, skipping..."
                 )
         except Exception as e:

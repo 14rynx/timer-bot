@@ -74,21 +74,21 @@ async def callback_server(bot, preston: Preston):
 
         # Authenticate using the code
         try:
-            authed_preston = preston.authenticate(code)
+            authed_preston = await preston.authenticate(code)
         except Exception as e:
             logger.error(e)
             logger.warning("Failed to verify token")
             return web.Response(text="Authentication failed!", status=403)
 
         # Get character data
-        character_data = authed_preston.whoami()
-        character_id = character_data["character_id"]
-        character_name = character_data["character_name"]
+        character_data = await authed_preston.whoami()
+        character_id = character_data.get("character_id")
+        character_name = character_data.get("character_name")
 
-        corporation_id = preston.get_op(
+        corporation_id = (await preston.get_op(
             'get_characters_character_id',
             character_id=character_id
-        ).get("corporation_id")
+        )).get("corporation_id")
 
         # Create / Update user and store refresh_token
         user = User.get_or_none(user_id=challenge.user.user_id)
@@ -105,7 +105,7 @@ async def callback_server(bot, preston: Preston):
         character.save()
 
         # Mark old notifications as skipped
-        notifications = authed_preston.get_op(
+        notifications = await authed_preston.get_op(
             "get_characters_character_id_notifications",
             character_id=character_id,
         )

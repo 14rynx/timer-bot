@@ -1,5 +1,5 @@
 discord
 peewee
-preston
+preston @ git+https://github.com/14rynx/Preston@async2
 psycopg2-binary
 python-dateutil
