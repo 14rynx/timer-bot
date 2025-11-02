@@ -1,8 +1,10 @@
+import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from json import JSONDecodeError
 
+import aiohttp
 from discord import Interaction
 from preston import Preston
 
@@ -43,7 +45,7 @@ async def send_foreground_warning(interaction: Interaction, warning: tuple[str, 
 async def esi_permission_warning(character: Character, preston: Preston):
     """Send a warning to users to fix ESI permissions."""
     try:
-        character_name = preston.get_op(
+        character_name = await preston.get_op(
             'get_characters_character_id',
             character_id=character.character_id
         ).get("name")
@@ -70,7 +72,7 @@ async def esi_permission_warning(character: Character, preston: Preston):
 async def structure_permission_warning(character: Character, authed_preston: Preston):
     """A warning to users to fix in corporation permissions."""
 
-    character_name = authed_preston.whoami()["character_name"]
+    character_name = (await authed_preston.whoami()).get("character_name")
 
     warning_text = (
         "### WARNING\n"
@@ -87,7 +89,7 @@ async def structure_permission_warning(character: Character, authed_preston: Pre
 
 async def structure_corp_warning(character: Character, authed_preston: Preston):
     """A warning to users who have changed corp."""
-    character_name = authed_preston.whoami()["character_name"]
+    character_name = (await authed_preston.whoami()).get("character_name")
 
     warning_text = (
         "### WARNING\n"
@@ -104,7 +106,7 @@ async def structure_corp_warning(character: Character, authed_preston: Preston):
 
 
 async def structure_other_warning(character: Character, authed_preston: Preston, error_value: str):
-    character_name = authed_preston.whoami()["character_name"]
+    character_name = (await authed_preston.whoami()).get("character_name")
 
     warning_text = (
         "### WARNING\n"
@@ -150,81 +152,92 @@ async def no_channel_anymore_log(character):
         no_channel_characters.add(character)
 
 
-async def handle_auth_error(character, bot, user, preston, exception):
-    if exception.response is not None:
-        if exception.response.status_code == 400 or exception.response.status_code == 401:
-            success = await send_background_warning(
-                bot, user,
-                await esi_permission_warning(character, preston)
-            )
 
-            if not success:
-                disconnected_character_cycles[character.character_id] += 1
+def get_error_text(exception: aiohttp.ClientResponseError):
+    if hasattr(exception, 'message') and exception.message:
+        try:
+            response_content = json.loads(exception.message)
+            return response_content.get("error", "")
+        except (ValueError, TypeError):
+            return exception.message
+    elif hasattr(exception, 'status'):
+        return f"HTTP {exception.status}"
+    else:
+        return ""
 
-            if disconnected_character_cycles[character.character_id] > 10:
-                logger.error(
-                    f"{character} can not be reached on either side (ESI & Discord) and will be deleted."
-                )
-                character = Character.get_or_none(character.character_id)
-                character.delete_instance()
 
+async def handle_auth_error(character, bot, user, preston, exception: aiohttp.ClientResponseError):
+    if getattr(exception, "status", 0) in [400, 401]:
+        success = await send_background_warning(
+            bot, user,
+            await esi_permission_warning(character, preston)
+        )
+
+        if not success:
+            disconnected_character_cycles[character.character_id] += 1
         else:
+            disconnected_character_cycles[character.character_id] = 0
+
+        if disconnected_character_cycles[character.character_id] > 100:
             logger.error(
-                f"{character} got {exception.response.status_code} response {exception.response.text}, skipping..."
+                f"{character} can not be reached on either side (ESI & Discord) and will be deleted."
             )
+            character = Character.get_or_none(character.character_id)
+            character.delete_instance()
+
     else:
         disconnected_character_cycles[character.character_id] = 0
-        logger.error(
-            f"{character} encountered HTTPError with no response attached when trying to authenticate: {exception}")
-
-
-async def handle_structure_error(character, authed_preston, exception, bot=None, user=None, interaction=None):
-    if exception.response is not None:
-        response_content = exception.response.json()
-        match response_content.get("error", ""):
-            case "Character does not have required role(s)":
-                warning_text = await structure_permission_warning(character, authed_preston)
-                if interaction is not None:
-                    await send_foreground_warning(interaction, warning_text)
-                if bot is not None and user is not None:
-                    await send_background_warning(bot, user, warning_text)
-            case "Character is not in the corporation":
-                # See if character changed corporation and update
-                character_new_corporation = authed_preston.get_op(
-                    "get_characters_character_id",
-                    character_id=character.character_id
-                ).get("corporation_id")
-
-                # Send warning if corp was correct, else update corp
-                if character.corporation_id == character_new_corporation:
-                    warning_text = await structure_corp_warning(character, authed_preston)
-                    if interaction is not None:
-                        await send_foreground_warning(interaction, warning_text)
-                    if bot is not None and user is not None:
-                        await send_background_warning(bot, user, warning_text)
-                else:
-                    character.corporation_id = character_new_corporation
-                    character.save()
-                    if interaction is not None:
-                        await interaction.followup.send(
-                            "Your corporation was out of date from ESI, should be fixed on the next try.")
-            case _:
-                warning_text = await structure_other_warning(character, authed_preston,
-                                                             response_content.get("error", ""))
-                if interaction is not None:
-                    await send_foreground_warning(interaction, warning_text)
-                if bot is not None and user is not None:
-                    await send_background_warning(bot, user, warning_text)
-
-    else:
         logger.warning(
-            f"{character} encountered HTTPError with no response when trying to fetch structure info: {exception}")
-
-
-async def handle_notification_error(character, exception):
-    if exception.response is not None:
-        logger.warning(
-            f"{character} got a HTTPError with code {exception.response.status_code} and text {exception.response.text}, skipping..."
+            f"Auth for {character} encountered ClientResponseError: status={getattr(exception, 'status', None)}, message={get_error_text(exception)}"
         )
-    else:
-        logger.warning(f"{character} encountered HTTPError with no response: {exception}")
+
+
+async def handle_structure_error(character, authed_preston, exception: aiohttp.ClientResponseError,
+                                 bot=None, user=None, interaction=None):
+    error_text = get_error_text(exception)
+    match error_text:
+        case "Character does not have required role(s)":
+            warning_text = await structure_permission_warning(character, authed_preston)
+            if interaction is not None:
+                await send_foreground_warning(interaction, warning_text)
+            if bot is not None and user is not None:
+                await send_background_warning(bot, user, warning_text)
+
+        case "Character is not in the corporation":
+            new_corporation = await authed_preston.get_op(
+                "get_characters_character_id",
+                character_id=character.character_id
+            ).get("corporation_id")
+
+            if character.corporation_id == new_corporation:
+                warning_text = await structure_corp_warning(character, authed_preston)
+                if interaction is not None:
+                    await send_foreground_warning(interaction, warning_text)
+                if bot is not None and user is not None:
+                    await send_background_warning(bot, user, warning_text)
+            else:
+                old_corporation = character.corporation_id
+                character.corporation_id = new_corporation
+                character.save()
+                if interaction is not None:
+                    await interaction.followup.send(
+                        f"Your character’s corporation ID `{old_corporation}` changed to `{new_corporation}`, which is now updated. Please retry the last command."
+                    )
+
+        case _:
+            warning_text = await structure_other_warning(character, authed_preston, error_text)
+            if interaction is not None:
+                await send_foreground_warning(interaction, warning_text)
+            if bot is not None and user is not None:
+                await send_background_warning(bot, user, warning_text)
+
+    logger.warning(
+        f"Structure fetch for {character} encountered ClientResponseError: status={getattr(exception, 'status', None)}, message={error_text}"
+    )
+
+
+async def handle_notification_error(character, exception: aiohttp.ClientResponseError):
+    logger.warning(
+        f"Notification fetch for {character} encountered ClientResponseError: status={getattr(exception, 'status', None)}, message={get_error_text(exception)}"
+    )
+

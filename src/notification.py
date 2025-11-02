@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime, timezone, timedelta
 
+import aiohttp
 from preston import Preston
 
 import dateutil.parser
-from requests import HTTPError
 
 from models import Notification
 from utils import send_background_message
@@ -32,21 +32,19 @@ def get_attacker_character_id(notification: dict) -> int | None:
     return None
 
 
-def make_attribution(notification: dict, preston: Preston) -> str:
-    # Parse attacker info
+async def make_attribution(notification: dict, preston: Preston) -> str:
     character_id = get_attacker_character_id(notification)
-    if character_id is not None:
-        try:
-            character_name = preston.get_op(
-                'get_characters_character_id',
-                character_id=str(character_id)
-            ).get("name", "Unknown")
-            attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
-        except HTTPError:
-            attribution = ""
-    else:
-        attribution = ""
-    return attribution
+    if character_id is None:
+        return ""
+
+    try:
+        character_name = (await preston.get_op(
+            'get_characters_character_id',
+            character_id=str(character_id)
+        )).get("name", "Unknown")
+        return f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
+    except aiohttp.ClientResponseError:
+        return ""
 
 
 def get_reinforce_exit_time(notification: dict) -> datetime | None:
@@ -67,14 +65,14 @@ def poco_timer_text(notification: dict) -> str:
     return f"**Timer:** <t:{int(state_expires.timestamp())}> (<t:{int(state_expires.timestamp())}:R>) ({state_expires} ET)\n"
 
 
-def structure_notification_text(notification: dict, authed_preston: Preston) -> str:
+async def structure_notification_text(notification: dict, authed_preston: Preston) -> str:
     """Returns a human-readable message of a structure notification"""
     # noinspection PyBroadException
     try:
-        structure_name = authed_preston.get_op(
+        structure_name = (await authed_preston.get_op(
             "get_universe_structures_structure_id",
             structure_id=str(get_structure_id(notification)),
-        ).get("name")
+        )).get("name")
     except Exception:
         structure_name = f"Structure {get_structure_id(notification)}"
 
@@ -86,7 +84,7 @@ def structure_notification_text(notification: dict, authed_preston: Preston) -> 
         case "StructureUnanchoring":
             return f"@everyone Structure {structure_name} is now unanchoring!\n"
         case "StructureUnderAttack":
-            return f"@everyone Structure {structure_name} is under attack{make_attribution(notification, authed_preston)}!\n"
+            return f"@everyone Structure {structure_name} is under attack{await make_attribution(notification, authed_preston)}!\n"
         case "StructureWentHighPower":
             return f"@everyone Structure {structure_name} is now high power!\n"
         case "StructureWentLowPower":
@@ -97,7 +95,7 @@ def structure_notification_text(notification: dict, authed_preston: Preston) -> 
             return ""
 
 
-def get_poco_name(notification: dict, preston: Preston) -> str:
+async def get_poco_name(notification: dict, preston: Preston) -> str:
     """returns a structure id from the notification or none if no structure_id can be found"""
     planet_id = None
     for line in notification.get("text").split("\n"):
@@ -105,18 +103,18 @@ def get_poco_name(notification: dict, preston: Preston) -> str:
             planet_id = line.split(" ")[1]
 
     if planet_id is not None:
-        return preston.get_op("get_universe_planets_planet_id", planet_id=planet_id).get("name")
+        return (await preston.get_op("get_universe_planets_planet_id", planet_id=planet_id)).get("name")
     return "Unknown Poco"
 
 
-def poco_notification_text(notification: dict, preston: Preston) -> str:
+async def poco_notification_text(notification: dict, preston: Preston) -> str:
     """Returns a human-readable message of a structure notification"""
 
     match notification.get('type'):
         case "OrbitalAttacked":
-            return f"@everyone {get_poco_name(notification, preston)} is under attack{make_attribution(notification, preston)}!\n"
+            return f"@everyone {await get_poco_name(notification, preston)} is under attack{await make_attribution(notification, preston)}!\n"
         case "OrbitalReinforced":
-            return f"@everyone {get_poco_name(notification, preston)} has ben reinforced{make_attribution(notification, preston)}!\n{poco_timer_text(notification)}\n"
+            return f"@everyone {await get_poco_name(notification, preston)} has ben reinforced{await make_attribution(notification, preston)}!\n{poco_timer_text(notification)}\n"
         case _:
             return ""
 
@@ -145,13 +143,13 @@ async def send_notification_message(notification, bot, user, authed_preston, ide
     notif, created = Notification.get_or_create(notification_id=notification_id, timestamp=timestamp)
 
     if is_structure_notification(notification):
-        if not notif.sent and len(message := structure_notification_text(notification, authed_preston)) > 0:
+        if not notif.sent and len(message := await structure_notification_text(notification, authed_preston)) > 0:
             if await send_background_message(bot, user, message, identifier):
                 notif.sent = True
                 notif.save()
 
     if is_poco_notification(notification):
-        if not notif.sent and len(message := poco_notification_text(notification, authed_preston)) > 0:
+        if not notif.sent and len(message := await poco_notification_text(notification, authed_preston)) > 0:
             if await send_background_message(bot, user, message, identifier):
                 notif.sent = True
                 notif.save()

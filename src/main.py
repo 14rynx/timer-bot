@@ -6,11 +6,11 @@ import os
 import secrets
 from io import BytesIO
 
+import aiohttp
 import discord
 from discord import Interaction, app_commands
 from discord.ext import commands
 from preston import Preston
-from requests.exceptions import HTTPError
 
 from callback import callback_server
 from models import User, Challenge, Character, initialize_database
@@ -30,12 +30,12 @@ initialize_database()
 
 
 # Setup ESI connection
-def refresh_token_callback(preston):
-    character_id = preston.whoami()["character_id"]
-    character = Character.get(character_id=character_id)
-    character.token = preston.refresh_token
-    character.save()
-
+async def refresh_token_callback(preston):
+    character_data = await preston.whoami()
+    if "character_id" in character_data:
+        character = Character.get(character_id=character_data.get("character_id"))
+        character.token = preston.refresh_token
+        character.save()
 
 base_preston = Preston(
     user_agent="Structure timer discord bot by <larynx.austrene@gmail.com>",
@@ -202,9 +202,9 @@ async def characters(interaction: Interaction):
     if user:
         for character in user.characters:
             try:
-                authed_preston = base_preston.authenticate_from_token(character.token)
-            except HTTPError as exp:
-                if exp.response.status_code == 401:
+                authed_preston = await base_preston.authenticate_from_token(character.token)
+            except aiohttp.ClientResponseError as exp:
+                if exp.status == 401:
                     await send_foreground_warning(
                         interaction,
                         await esi_permission_warning(character, base_preston)
@@ -213,8 +213,8 @@ async def characters(interaction: Interaction):
                 else:
                     raise
 
-            character_name = authed_preston.whoami()['character_name']
-            character_names.append(f"- {character_name}")
+            character_data = await authed_preston.whoami()
+            character_names.append(f"- {character_data.get('character_name', 'Unknown')}")
 
     if not character_names:
         await interaction.followup.send("You have no authorized characters!", ephemeral=True)
@@ -260,12 +260,12 @@ async def revoke(interaction: Interaction, character_name: str | None = None):
         character_id = int(character_name)
     except ValueError:
         try:
-            result = base_preston.post_op(
+            result = await base_preston.post_op(
                 'post_universe_ids',
                 path_data={},
                 post_data=[character_name]
             )
-            character_id = int(max(result["characters"], key=lambda x: x["id"])["id"])
+            character_id = int(max(result.get("characters"), key=lambda x: x.get("id")).get("id"))
         except (ValueError, KeyError):
             await  interaction.followup.send(
                 f"Args `{character_name}` could not be parsed or looked up.",
@@ -301,29 +301,26 @@ async def info(interaction: Interaction):
     if user:
         for character in user.characters:
             try:
-                authed_preston = base_preston.authenticate_from_token(character.token)
-            except HTTPError as exp:
-                if exp.response.status_code == 401:
+                authed_preston = await base_preston.authenticate_from_token(character.token)
+            except aiohttp.ClientResponseError as exp:
+                if exp.status == 401:
                     await send_foreground_warning(interaction, await esi_permission_warning(character, base_preston))
                     continue
                 else:
                     raise
 
             try:
-                corporation_id = authed_preston.get_op(
-                    'get_characters_character_id',
-                    character_id=character.character_id
-                ).get("corporation_id")
-                structure_response = authed_preston.get_op(
+                structure_response = await authed_preston.get_op(
                     "get_corporations_corporation_id_structures",
-                    corporation_id=corporation_id,
+                    corporation_id=character.corporation_id,
                 )
             except ConnectionError:
                 logger.warning(f"/info got a network error got {character}")
                 await interaction.followup.send("Network error with /info command, try again later")
                 return
-            except HTTPError as exp:
+            except aiohttp.ClientResponseError as exp:
                 await handle_structure_error(character, authed_preston, exp, interaction=interaction)
+                return
             except Exception as e:
                 await interaction.followup.send(f"Got an unfamiliar error in /info command: {e}.")
                 logger.error(f"/info got an unfamiliar error with {character}: {e}.", exc_info=True)
@@ -399,16 +396,16 @@ async def debug(interaction: Interaction, character_id: int):
         return
 
     try:
-        authed_preston = base_preston.authenticate_from_token(character.token)
-        whoami = authed_preston.whoami()
-        character_name = whoami.get("character_name", "Unknown")
+        authed_preston = await base_preston.authenticate_from_token(character.token)
+        character_data = await authed_preston.whoami()
+        character_name = character_data.get("character_name", "Unknown")
 
-        structure_response = authed_preston.get_op(
+        structure_response = await authed_preston.get_op(
             "get_corporations_corporation_id_structures",
             corporation_id=character.corporation_id,
         )
 
-        notification_response = authed_preston.get_op(
+        notification_response = await authed_preston.get_op(
             "get_characters_character_id_notifications",
             character_id=character.character_id
         )
@@ -424,8 +421,8 @@ async def debug(interaction: Interaction, character_id: int):
             ]
         )
 
-    except HTTPError as exp:
-        await interaction.followup.send(f"HTTPError: {exp.response.status_code} - {exp.response.text}", ephemeral=True)
+    except aiohttp.ClientResponseError as exp:
+        await interaction.followup.send(f"HTTPError: {exp.status} - {exp.message}", ephemeral=True)
     except Exception as e:
         await interaction.followup.send(f"Unhandled exception: {e}", ephemeral=True)
 
