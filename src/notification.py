@@ -4,6 +4,8 @@ from datetime import datetime, timezone, timedelta
 from preston import Preston
 
 import dateutil.parser
+from requests import HTTPError
+
 from models import Notification
 from utils import send_background_message
 
@@ -34,11 +36,14 @@ def make_attribution(notification: dict, preston: Preston) -> str:
     # Parse attacker info
     character_id = get_attacker_character_id(notification)
     if character_id is not None:
-        character_name = preston.get_op(
-            'get_characters_character_id',
-            character_id=str(character_id)
-        ).get("name", "Unknown")
-        attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
+        try:
+            character_name = preston.get_op(
+                'get_characters_character_id',
+                character_id=str(character_id)
+            ).get("name", "Unknown")
+            attribution = f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
+        except HTTPError:
+            attribution = ""
     else:
         attribution = ""
     return attribution
