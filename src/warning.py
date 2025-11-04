@@ -195,41 +195,49 @@ async def handle_auth_error(character, bot, user, preston, exception: aiohttp.Cl
 async def handle_structure_error(character, authed_preston, exception: aiohttp.ClientResponseError,
                                  bot=None, user=None, interaction=None):
     error_text = get_error_text(exception)
-    match error_text:
-        case "Character does not have required role(s)":
-            warning_text = await structure_permission_warning(character, authed_preston)
-            if interaction is not None:
-                await send_foreground_warning(interaction, warning_text)
-            if bot is not None and user is not None:
-                await send_background_warning(bot, user, warning_text)
+    if error_text == "Character does not have required role(s)":
+        warning_text = await structure_permission_warning(character, authed_preston)
+        if interaction is not None:
+            await send_foreground_warning(interaction, warning_text)
+        if bot is not None and user is not None:
+            await send_background_warning(bot, user, warning_text)
 
-        case "Character is not in the corporation":
-            new_corporation = await authed_preston.get_op(
-                "get_characters_character_id",
+    elif error_text in ["Character is not in the corporation", "Forbidden"]:
+        try:
+            # Try fast affiliation API
+            new_corporation = (await authed_preston.post_op(
+                'post_characters_affiliation',
+                path_data={},
+                post_data=[character.character_id]
+            ))[0].get("corporation_id")
+        except Exception as e:
+            # Fall back to slow character API
+            new_corporation = (await authed_preston.get_op(
+                'get_characters_character_id',
                 character_id=character.character_id
-            ).get("corporation_id")
+            )).get("corporation_id")
 
-            if character.corporation_id == new_corporation:
-                warning_text = await structure_corp_warning(character, authed_preston)
-                if interaction is not None:
-                    await send_foreground_warning(interaction, warning_text)
-                if bot is not None and user is not None:
-                    await send_background_warning(bot, user, warning_text)
-            else:
-                old_corporation = character.corporation_id
-                character.corporation_id = new_corporation
-                character.save()
-                if interaction is not None:
-                    await interaction.followup.send(
-                        f"Your character’s corporation ID `{old_corporation}` changed to `{new_corporation}`, which is now updated. Please retry the last command."
-                    )
-
-        case _:
-            warning_text = await structure_other_warning(character, authed_preston, error_text)
+        if character.corporation_id == new_corporation:
+            warning_text = await structure_corp_warning(character, authed_preston)
             if interaction is not None:
                 await send_foreground_warning(interaction, warning_text)
             if bot is not None and user is not None:
                 await send_background_warning(bot, user, warning_text)
+        else:
+            old_corporation = character.corporation_id
+            character.corporation_id = new_corporation
+            character.save()
+            if interaction is not None:
+                await interaction.followup.send(
+                    f"Your character’s corporation ID `{old_corporation}` changed to `{new_corporation}`, which is now updated. Please retry the last command."
+                )
+
+    else:
+        warning_text = await structure_other_warning(character, authed_preston, error_text)
+        if interaction is not None:
+            await send_foreground_warning(interaction, warning_text)
+        if bot is not None and user is not None:
+            await send_background_warning(bot, user, warning_text)
 
     logger.warning(
         f"Structure fetch for {character} encountered ClientResponseError: status={getattr(exception, 'status', None)}, message={error_text}"
