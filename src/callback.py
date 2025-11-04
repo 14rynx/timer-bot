@@ -85,10 +85,19 @@ async def callback_server(bot, preston: Preston):
         character_id = character_data.get("character_id")
         character_name = character_data.get("character_name")
 
-        corporation_id = (await preston.get_op(
-            'get_characters_character_id',
-            character_id=character_id
-        )).get("corporation_id")
+        try:
+            # Try fast affiliation API
+            corporation_id = (await preston.post_op(
+                'post_characters_affiliation',
+                path_data={},
+                post_data=[character_id]
+            ))[0].get("corporation_id")
+        except Exception as e:
+            # Fall back to slow character API
+            corporation_id = (await preston.get_op(
+                'get_characters_character_id',
+                character_id=character_id
+            )).get("corporation_id")
 
         # Create / Update user and store refresh_token
         user = User.get_or_none(user_id=challenge.user.user_id)
