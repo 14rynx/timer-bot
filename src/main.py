@@ -49,8 +49,6 @@ base_preston = Preston(
 
 # Setup Discord
 intent = discord.Intents.default()
-intent.messages = True
-intent.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intent)
 
 
