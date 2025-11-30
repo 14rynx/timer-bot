@@ -5,10 +5,10 @@ If you just want to know what is going on, without having to run a full [Allianc
 
 ![Info](https://friendly-splash.space/Tools/timer-notifications-images/info-command.png)
 
-## Using the Public Instance of the Bot
+## Public Instance
 
 You can use the following [invite link](https://discord.com/oauth2/authorize?client_id=1180817944813518879&permissions=3072&scope=bot) to add the bot to your discord server.
-Please also join my [discord sever](https://discord.com/invite/fT3eShrg5g) if you want any info on updates / maintenance.
+Please also join my [discord sever](https://discord.com/invite/fT3eShrg5g) if you want any info on updates / maintenance. Please note the Data Protection and TOS rules at the bottom of the REDME.md.
 
 To set up the bot, do the follwing:
 - Make sure your character(s) you want to use have the `Station Manager` role. You can find it in game under "Corporation" -> "Administration" -> "Role Management" -> "Station Services".
@@ -24,7 +24,7 @@ Now you can use any of the other commands:
 Note: This video is slightly outdated. The bot now uses `/` to start commands and not `!`.
 [![Demonstration Video](https://img.youtube.com/vi/s6n5UfaSpWg/0.jpg)](https://www.youtube.com/watch?v=s6n5UfaSpWg)
 
-## Setting up an Instance on your own Server
+## Self-Hosting
 
 Since we need to connect to both ESI and discord, there is sadly still some things to do.
 TLDR: Create an env file and fill it in with the CCP and Discord info, then run with docker compose.
@@ -81,3 +81,25 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
    ```
    https://discord.com/oauth2/authorize?client_id=<YOUR_CLIENT_ID_GOES_HERE>&permissions=3072&scope=bot
    ```
+
+# Public Instance Terms of Service and Data Protection Rules
+## Terms of Service
+By using the public instance Timer-Bot via the invite link you are agreeing to the following terms of service between you and Larynx Austrene:
+- Timer-bot is provided as a best-effort service free of charge. Altough timer-bot is internally redundant and will automatically fix missed timers, we do not take any responsibility for missed timers due to force majeure. If you want to achieve waterproof guarantees host your own instance.
+In timer bot, the following mechanisms are used to notify users of data transmission problems: 
+  - In case of a connectivity problem with EvE ESI, you will be notified via discord.
+  - If there is an issue with the set up discord channel, timer-bot will attempt using private messages and warn you. 
+  - If that is not possible you will show up in the public endpoint [timer.synthesis-w.space/unreachable](https://timer.synthesis-w.space/unreachable). 
+  - If you are unreachable by both eve and discord your account will be deleted after 100 unsucessful attempts.
+  - Any manual attemps at fixing your data reception are not required by Larynx Austrene and are solely your responsibility.
+- The public instance of timer-bot is primarily intended for small, independent entities in eve-online which run no or little private IT-infrastructure. You are allowed to use the service even in large corporations/alliances, but in cases where a single entity takes up significant resources, we reserve the right to exclude you from the service.
+- The service may be discontinued at any time by Larynx Austrene, users will be notified by the built-in call-to-action command.
+- And disputes will be handled at Court for Trial by Fire - Planet V - J204815 - D-R00016 - Anoikis.
+## Data Protection Rules
+- The timer-bot public instance is hosted in germany and stores the following information about your eve online characters and discord user. To protect your identity, you are required to not use any real-world names when signing up to this service.
+  - Your API Keys, corporation and character names as well as discord channel and user ids as well as current structure state during the extent of you using the service
+  - Logs containing your user and character id until the restart of the service, which happens only at new deployment or uppon request.
+  - Structure and Poco related notification ids for up to 3 days to uniquely identify them.
+  - Other notifications are filtered in-flight and not stored to disk
+- If you wish to remove your data and API tokens, you can use the /revoke command, data is deleted immediately and irrevocably with the exception of log data which will remain until the next bot restart.
+- For data related concerns, you can contact Larynx Austrene in game, via larynx.austrene@gmail.com or discord user larynx.com
