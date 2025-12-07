@@ -56,7 +56,6 @@ async def send_background_message(bot, user, message, identifier="<no identifier
                 f"Otherwise you might eventually no longer be reachable."
             )
         await user_channel.send(message)
-        return True
     except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException,
             discord.errors.InvalidData):
         if not quiet:
@@ -76,3 +75,7 @@ async def send_background_message(bot, user, message, identifier="<no identifier
             )
             no_channel_users.add(user)
         return False
+    else:
+        if user in no_channel_users:
+            no_channel_users.remove(user)
+        return True
