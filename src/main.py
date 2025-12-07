@@ -425,5 +425,35 @@ async def debug(interaction: Interaction, character_id: int):
         await interaction.followup.send(f"Unhandled exception: {e}", ephemeral=True)
 
 
+@bot.tree.command(
+    name="dryrun",
+    description="Send you a message in just the way a notification would work for testing purposes."
+)
+@command_error_handler
+async def dryrun(interaction: Interaction):
+
+    user = User.get_or_none(user_id=interaction.user.id)
+
+    if user is not None:
+        success = await send_background_message(
+            bot,
+            user,
+            "Dry Run: You would receive callback notifications like this.",
+            "dryrun",
+            quiet=True
+        )
+        if success:
+            await interaction.response.send_message(
+                f"Sent you a dry run message", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                f"Failed to send you a dry run message, try setting up a channel where the bot can write and use /callback there", ephemeral=True
+            )
+    else:
+        await interaction.response.send_message(
+            f"You are not a registered user, try the /auth command", ephemeral=True
+        )
+
 if __name__ == "__main__":
     bot.run(os.environ["DISCORD_TOKEN"])
