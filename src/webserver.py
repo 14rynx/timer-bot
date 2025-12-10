@@ -8,15 +8,15 @@ from discord.ext import tasks
 from preston import Preston
 
 from models import User, Character, Challenge, Notification, db
-from notification import is_structure_notification
-from utils import no_channel_users
+from actions.notification import is_structure_notification
+from messaging import user_disconnected_count
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.callback')
 
 
 @tasks.loop()
-async def callback_server(bot, preston: Preston):
+async def webserver(bot, preston: Preston):
     routes = web.RouteTableDef()
 
     @routes.get('/')
@@ -144,7 +144,7 @@ async def callback_server(bot, preston: Preston):
         """Return list of users who currently have no valid channel."""
 
         users_data = []
-        for u in no_channel_users:
+        for u, count in user_disconnected_count.items():
             user_id = getattr(u, "user_id", None)
             if not user_id:
                 continue
@@ -160,6 +160,7 @@ async def callback_server(bot, preston: Preston):
                 "handle": f"{discord_user}" if discord_user else "<unknown>",
                 "name": getattr(discord_user, "name", None),
                 "discriminator": getattr(discord_user, "discriminator", None),
+                "attempts": count,
             })
 
         return web.json_response({

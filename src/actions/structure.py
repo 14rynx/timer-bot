@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
+from messaging import send_background_message
 from models import Structure
-from utils import send_background_message
 
 # Mapping of EVE states to human-readable states
 state_mapping = {
@@ -130,5 +130,3 @@ async def send_structure_message(structure, bot, user, identifier="<no identifie
                 structure_db.last_fuel_warning = current_fuel_warning
                 structure_db.save()
                 return
-
-

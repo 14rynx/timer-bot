@@ -1,24 +1,23 @@
+import aiohttp
 import asyncio
+import discord
 import functools
 import json
 import logging
 import os
 import secrets
-from io import BytesIO
-
-import aiohttp
-import discord
 from discord import Interaction, app_commands
 from discord.ext import commands
+from io import BytesIO
 from preston import Preston
 
-from callback import callback_server
+from actions.esi import esi_permission_warning, channel_warning, handle_structure_error, updated_channel_warning
+from actions.esi import send_foreground_warning
+from actions.structure import structure_info_text
+from messaging import send_background_message
 from models import User, Challenge, Character, initialize_database
 from relay import notification_pings, status_pings, no_auth_pings, cleanup_old_notifications
-from structure import structure_info_text
-from utils import send_background_message
-from warning import esi_permission_warning, channel_warning, handle_structure_error, updated_channel_warning
-from warning import send_foreground_warning
+from webserver import webserver
 
 # Configure the logger
 logger = logging.getLogger('discord.timer')
@@ -36,6 +35,7 @@ async def refresh_token_callback(preston):
         character = Character.get(character_id=character_data.get("character_id"))
         character.token = preston.refresh_token
         character.save()
+
 
 base_preston = Preston(
     user_agent="Structure timer discord bot by <larynx.austrene@gmail.com>",
@@ -95,7 +95,7 @@ async def on_ready():
     notification_pings.start(action_lock, base_preston, bot)
     status_pings.start(action_lock, base_preston, bot)
     cleanup_old_notifications.start(action_lock)
-    callback_server.start(bot, base_preston)
+    webserver.start(bot, base_preston)
 
     logger.info(f"on_ready() logged in as {bot.user} (ID: {bot.user.id})")
     try:
@@ -431,7 +431,6 @@ async def debug(interaction: Interaction, character_id: int):
 )
 @command_error_handler
 async def dryrun(interaction: Interaction):
-
     user = User.get_or_none(user_id=interaction.user.id)
 
     if user is not None:
@@ -448,12 +447,14 @@ async def dryrun(interaction: Interaction):
             )
         else:
             await interaction.response.send_message(
-                f"Failed to send you a dry run message, try setting up a channel where the bot can write and use /callback there", ephemeral=True
+                f"Failed to send you a dry run message, try setting up a channel where the bot can write and use /callback there",
+                ephemeral=True
             )
     else:
         await interaction.response.send_message(
             f"You are not a registered user, try the /auth command", ephemeral=True
         )
+
 
 if __name__ == "__main__":
     bot.run(os.environ["DISCORD_TOKEN"])

@@ -1,15 +1,14 @@
+import aiohttp
 import collections
 import logging
 from datetime import datetime, time, timedelta, UTC
-
-import aiohttp
 from discord.ext import tasks
 
+from actions.esi import handle_auth_error, handle_structure_error, handle_notification_error
+from actions.notification import send_notification_message
+from actions.structure import send_structure_message
+from messaging import send_background_message
 from models import Character, User, Notification
-from notification import send_notification_message
-from structure import send_structure_message
-from utils import send_background_message
-from warning import handle_auth_error, handle_structure_error, handle_notification_error
 
 logger = logging.getLogger('discord.timer.relay')
 
@@ -86,7 +85,8 @@ async def notification_pings(action_lock, preston, bot):
                 )
         except Exception as e:
             logger.error(
-                f"notification_pings information gathering got an unfamiliar exception for {character}: {e}.",  exc_info=True
+                f"notification_pings information gathering got an unfamiliar exception for {character}: {e}.",
+                exc_info=True
             )
         else:
             try:
@@ -95,8 +95,9 @@ async def notification_pings(action_lock, preston, bot):
                         notification, bot, character.user, authed_preston, identifier=str(character)
                     )
             except Exception as e:
-                logger.error(f"notification_pings information sending got an unfamiliar exception for {character}: {e}.", exc_info=True)
-
+                logger.error(
+                    f"notification_pings information sending got an unfamiliar exception for {character}: {e}.",
+                    exc_info=True)
 
 
 @tasks.loop(seconds=STATUS_CACHE_TIME // STATUS_PHASES + 1)
@@ -136,8 +137,8 @@ async def status_pings(action_lock, preston, bot):
                 for structure in response:
                     await send_structure_message(structure, bot, character.user, identifier=str(character))
             except Exception as e:
-                logger.error(f"status_pings information sendinggot an unfamiliar exception for {character}: {e}.", exc_info=True)
-
+                logger.error(f"status_pings information sendinggot an unfamiliar exception for {character}: {e}.",
+                             exc_info=True)
 
 
 @tasks.loop(hours=42)

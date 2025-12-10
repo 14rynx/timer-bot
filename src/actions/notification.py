@@ -1,13 +1,11 @@
+import aiohttp
+import dateutil.parser
 import logging
 from datetime import datetime, timezone, timedelta
-
-import aiohttp
 from preston import Preston
 
-import dateutil.parser
-
+from messaging import send_background_message
 from models import Notification
-from utils import send_background_message
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.notification')

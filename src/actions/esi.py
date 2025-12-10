@@ -1,22 +1,19 @@
+import aiohttp
 import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-from json import JSONDecodeError
-
-import aiohttp
 from discord import Interaction
+from json import JSONDecodeError
 from preston import Preston
 
+from messaging import send_background_message
 from models import Character
-from utils import send_background_message
 
 # Configure the logger
 logger = logging.getLogger('discord.timer.warnings')
 
 sent_warnings = {}
-no_channel_characters = set()
-disconnected_character_cycles = defaultdict(int)
 
 
 async def send_background_warning(bot, user, warning: tuple[str, str], quiet: bool = False):
@@ -146,13 +143,6 @@ async def updated_channel_warning(user, channel):
     return warning_text, log_text
 
 
-async def no_channel_anymore_log(character):
-    if character not in no_channel_characters:
-        logger.info(f"{character} has no valid channel and can not be notified, skipping...")
-        no_channel_characters.add(character)
-
-
-
 def get_error_text(exception: aiohttp.ClientResponseError):
     if hasattr(exception, 'message') and exception.message:
         try:
@@ -166,6 +156,9 @@ def get_error_text(exception: aiohttp.ClientResponseError):
         return ""
 
 
+character_double_disconnected_count = defaultdict(int)
+
+
 async def handle_auth_error(character, bot, user, preston, exception: aiohttp.ClientResponseError):
     if getattr(exception, "status", 0) in [400, 401]:
         success = await send_background_warning(
@@ -174,11 +167,11 @@ async def handle_auth_error(character, bot, user, preston, exception: aiohttp.Cl
         )
 
         if not success:
-            disconnected_character_cycles[character.character_id] += 1
+            character_double_disconnected_count[character.character_id] += 1
         else:
-            disconnected_character_cycles[character.character_id] = 0
+            character_double_disconnected_count[character.character_id] = 0
 
-        if disconnected_character_cycles[character.character_id] > 100:
+        if character_double_disconnected_count[character.character_id] > 100:
             logger.error(
                 f"{character} can not be reached on either side (ESI & Discord) and will be deleted."
             )
@@ -186,7 +179,7 @@ async def handle_auth_error(character, bot, user, preston, exception: aiohttp.Cl
             character.delete_instance()
 
     else:
-        disconnected_character_cycles[character.character_id] = 0
+        character_double_disconnected_count[character.character_id] = 0
         logger.warning(
             f"Auth for {character} encountered ClientResponseError: status={getattr(exception, 'status', None)}, message={get_error_text(exception)}"
         )
@@ -248,4 +241,3 @@ async def handle_notification_error(character, exception: aiohttp.ClientResponse
     logger.warning(
         f"Notification fetch for {character} encountered ClientResponseError: status={getattr(exception, 'status', None)}, message={get_error_text(exception)}"
     )
-

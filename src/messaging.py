@@ -1,10 +1,10 @@
-import logging
-
 import discord
+import logging
+from collections import defaultdict
 
 logger = logging.getLogger('discord.timer.utils')
 
-no_channel_users = set()
+user_disconnected_count = defaultdict(int)
 
 
 async def get_channel(user, bot):
@@ -34,21 +34,20 @@ async def send_background_message(bot, user, message, identifier="<no identifier
     Returns true if successful
     """
 
-    user_channel, emergency_dm = await get_channel(user, bot)
+    user_channel, is_emergency_dm = await get_channel(user, bot)
 
     if user_channel is None:
-        if user not in no_channel_users:
-            if not quiet:
-                logger.info(
-                    f"Sending message to {user} failed (no channel).\n"
-                    f"Recipient Identifier: {identifier}\n"
-                    f"Message: {message}"
-                )
-            no_channel_users.add(user)
-        raise
+        if not quiet:
+            logger.info(
+                f"Sending message to {user} failed (no channel).\n"
+                f"Recipient Identifier: {identifier}\n"
+                f"Message: {message}"
+            )
+        user_disconnected_count[user] += 1
+        return False
 
     try:
-        if emergency_dm:
+        if is_emergency_dm:
             await user_channel.send(
                 "### WARNING\n"
                 f"<@{user.user_id}>, timer-bot could not reach you through your callback channel but only through DMs."
@@ -56,6 +55,7 @@ async def send_background_message(bot, user, message, identifier="<no identifier
                 f"Otherwise you might eventually no longer be reachable."
             )
         await user_channel.send(message)
+
     except (discord.errors.Forbidden, discord.errors.NotFound, discord.errors.HTTPException,
             discord.errors.InvalidData):
         if not quiet:
@@ -64,7 +64,7 @@ async def send_background_message(bot, user, message, identifier="<no identifier
                 f"Recipient Identifier: {identifier}\n"
                 f"Message: {message}"
             )
-            no_channel_users.add(user)
+        user_disconnected_count[user] += 1
         return False
     except Exception as e:
         if not quiet:
@@ -73,9 +73,8 @@ async def send_background_message(bot, user, message, identifier="<no identifier
                 f"Recipient Identifier: {identifier}\n"
                 f"Message: {message}", exc_info=True
             )
-            no_channel_users.add(user)
+        user_disconnected_count[user] += 1
         return False
     else:
-        if user in no_channel_users:
-            no_channel_users.remove(user)
+        user_disconnected_count[user] = 0
         return True
