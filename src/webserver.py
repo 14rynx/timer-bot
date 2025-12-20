@@ -7,7 +7,7 @@ from aiohttp import web
 from discord.ext import tasks
 from preston import Preston
 
-from models import User, Character, Challenge, Notification, db
+from models import User, Character, Challenge, Notification, db, Structure
 from actions.notification import is_structure_notification
 from messaging import user_disconnected_count
 
@@ -38,12 +38,23 @@ async def webserver(bot, preston: Preston):
                 db.connect()
             
             # Try to execute a simple query to test the connection
-            db.execute_sql("SELECT 1")
-            
+            structure_count = Structure.select().count()
+
+            corporation_count = (
+                Character
+                .select(Character.corporation_id)
+                .distinct()
+                .count()
+            )
+
             health_status.update({
                 "status": "healthy",
                 "database": "connected",
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "counts": {
+                    "structures": structure_count,
+                    "corporations": corporation_count,
+                },
             })
             
             logger.debug("Health check passed")
