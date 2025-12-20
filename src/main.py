@@ -218,10 +218,15 @@ async def characters(interaction: Interaction):
         await interaction.followup.send("You have no authorized characters!", ephemeral=True)
         return
 
-    character_names_body = "\n".join(character_names)
-    await interaction.followup.send(
-        f"You have the following character(s) authenticated:\n{character_names_body}", ephemeral=True
-    )
+    for i in range(0, len(character_names), 50):
+        character_names_body = "\n".join(character_names[i:i + 50])
+
+        if i == 0:
+            start_text = "You have the following character(s) authenticated:"
+        else:
+            start_text = ""
+
+        await interaction.followup.send(f"{start_text}\n{character_names_body}", ephemeral=True)
 
 
 @bot.tree.command(
@@ -328,14 +333,13 @@ async def info(interaction: Interaction):
                     structure_id = structure.get("structure_id")
                     structures_info[structure_id] = structure_info_text(structure)
 
-    # Build message with all structure info
-    output = "\n"
-    if structures_info:
-        output += "".join(map(str, structures_info.values()))
-    else:
-        output += "No structures found!\n"
+    if not structures_info:
+        await interaction.followup.send("No structures found!\n")
 
-    await interaction.followup.send(output)
+    structures_list = list(map(str, structures_info.values()))
+    for i in range(0, len(structures_list), 10):
+        chunk = structures_list[i:i + 10]
+        await interaction.followup.send("\n" + "".join(chunk))
 
 
 @bot.tree.command(
