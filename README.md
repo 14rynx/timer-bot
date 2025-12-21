@@ -39,51 +39,55 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
     cp examples/.env.example .env
     ```
 
-3. (Optional) To use PostgreSQL instead of SQLite, add the following to your .env file:
-    ```bash
-    DB_HOST=postgres
-    DB_NAME=timer_bot
-    DB_USER=postgres
-    DB_PASSWORD=your_secure_password_here
-    DB_PORT=5432
-    ```
-    
-    If `DB_HOST` is not set, the bot will use SQLite (`data/bot.sqlite`) by default.
-
-4. Head over to the [Discord Developers Website](https://discord.com/developers/) and create yourself an application.
+3. Head over to the [Discord Developers Website](https://discord.com/developers/) and create yourself an application.
     - Go to the "Bot" section and reset the token, then copy the new one. Put it in the .env file (`DISCORD_TOKEN=`).
     - Enable the "Message Content Intent" in the Bot section.
     - Invite your bot to your server in the "OAuth2" section. In the URL Generator, click on "Bot" and then
     further down "Send Messages" and "Read Mesasges/View Channels". Follow the generated URL and add the bot to your server.
 
-5. Head over to the [Eve onlone Developers Page](https://developers.eveonline.com/) and create yourself an application.
+4. Head over to the [Eve onlone Developers Page](https://developers.eveonline.com/) and create yourself an application.
     - Under "Application Type" select "Authentication & API Access"
     - Under "Permissions" add `esi-universe.read_structures.v1, esi-corporations.read_structures.v1, esi-characters.read_notifications.v1`
     - Under "Callback URL" set `https://yourdomain.com/callback/` (obviously replace your domain)
 
     Now view the application and copy the values `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY` to your .env file.
 
+5. **Optional**: To use PostgreSQL instead of SQLite, add the following to your .env file:
+       ```shell
+       DB_HOST=postgres
+       DB_NAME=timer_bot
+       DB_USER=postgres
+       DB_PASSWORD=your_secure_password_here
+       DB_PORT=5432
+       ```
+       If `DB_HOST` is not set, the bot will use SQLite (`data/bot.sqlite`) by default.
+
+
 6. Start the container.
     + For a minimal setup (callback to http://your.ip.address.here/callback) run the following
       ```shell
-      docker-compose up -d --build -f examples/docker-compose.yml.example_minimal
+      docker compose -f examples/docker-compose.yml.example_minimal up
       ```
 
     + If you want to run this with traefik and use https:
       - Add the `LE_EMAIL=your_email@mailserver.com` to the .env file so that letsencrypt certbot can send you info about your https certificates
       - Run the docker compose with both timer-bot and traefik with the following command
       ```shell
-      docker-compose up -d --build -f examples/docker-compose.yml.example_https
+      docker compose -f examples/docker-compose.yml.example_https up
       ```
        
     + If you run traefik as a reverse-proxy externally already:
       ```shell
-      docker-compose up -d --build -f examples/docker-compose.yml.example_external_traefik
+      docker compose -f examples/docker-compose.yml.example_external_traefik up
       ```
 
     Copy the file to your current directory so that you don't have to type the -f flag in the future e.g.    
     ```shell
       cp examples/<your_chosen_file_here> docker_compose.yml
+    ``` 
+   and run the service in the background
+   ```shell
+      docker compose up -d
     ``` 
 
 7. You can now invite the bot to your server and continue like the public instance.
