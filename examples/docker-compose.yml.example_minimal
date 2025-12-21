@@ -1,0 +1,11 @@
+services:
+  timer:
+    build: ''
+    restart: unless-stopped
+    container_name: timer-bot
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data/
+    ports:
+      - "80:80"

@@ -36,7 +36,7 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
    
 2. Copy the .env file from the example
     ```shell
-    cp .env.example .env
+    cp examples/.env.example .env
     ```
 
 3. (Optional) To use PostgreSQL instead of SQLite, add the following to your .env file:
@@ -64,17 +64,27 @@ TLDR: Create an env file and fill it in with the CCP and Discord info, then run 
     Now view the application and copy the values `CCP_REDIRECT_URI`, `CCP_CLIENT_ID` and `CCP_SECRET_KEY` to your .env file.
 
 6. Start the container.
-    + If you run traefik as a reverse-proxy externally:
+    + For a minimal setup (callback to http://your.ip.address.here/callback) run the following
       ```shell
-      docker-compose up -d --build
+      docker-compose up -d --build -f examples/docker-compose.yml.example_minimal
       ```
-    
-    + If you want to run this without any external reverse proxy:
+
+    + If you want to run this with traefik and use https:
       - Add the `LE_EMAIL=your_email@mailserver.com` to the .env file so that letsencrypt certbot can send you info about your https certificates
       - Run the docker compose with both timer-bot and traefik with the following command
       ```shell
-      docker-compose up -d --build -f docker-compose+traefik.yml
+      docker-compose up -d --build -f examples/docker-compose.yml.example_https
       ```
+       
+    + If you run traefik as a reverse-proxy externally already:
+      ```shell
+      docker-compose up -d --build -f examples/docker-compose.yml.example_external_traefik
+      ```
+
+    Copy the file to your current directory so that you don't have to type the -f flag in the future e.g.    
+    ```shell
+      cp examples/<your_chosen_file_here> docker_compose.yml
+    ``` 
 
 7. You can now invite the bot to your server and continue like the public instance.
    You should be able to get an invite link from the discord admin panel, or you can fill in the blank in this one
