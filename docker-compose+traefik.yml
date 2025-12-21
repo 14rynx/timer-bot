@@ -46,8 +46,6 @@ services:
       - web
     restart: always
 
-volumes:
-  data:
 networks:
   web:
     external: true

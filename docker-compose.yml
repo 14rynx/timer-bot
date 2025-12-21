@@ -17,8 +17,7 @@ services:
       - "traefik.http.services.timer-secure.loadbalancer.server.port=80"
     networks:
       - web
-volumes:
-  data:
+
 networks:
   web:
     external: true
