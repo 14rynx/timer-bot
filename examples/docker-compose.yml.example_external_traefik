@@ -1,6 +1,6 @@
 services:
   timer:
-    build: ''
+    build: '.'
     restart: unless-stopped
     container_name: timer-bot
     env_file:
