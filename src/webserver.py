@@ -15,7 +15,7 @@ from messaging import user_disconnected_count
 logger = logging.getLogger('discord.timer.callback')
 
 
-@tasks.loop()
+@tasks.loop(count=1)
 async def webserver(bot, preston: Preston):
     routes = web.RouteTableDef()
 
@@ -184,9 +184,4 @@ async def webserver(bot, preston: Preston):
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, port=int(os.getenv('CALLBACK_PORT', '80')))
-    try:
-        await site.start()
-    except OSError:
-        return # Callback already running
-    else:
-        logger.info("callback_server started")
+    await site.start()
