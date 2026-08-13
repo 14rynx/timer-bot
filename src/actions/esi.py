@@ -43,7 +43,7 @@ async def esi_permission_warning(character: Character, preston: Preston):
     """Send a warning to users to fix ESI permissions."""
     try:
         character_name = await preston.get_op(
-            'get_characters_character_id',
+            'GetCharactersCharacterId',
             character_id=character.character_id
         ).get("name")
 
@@ -199,14 +199,14 @@ async def handle_structure_error(character, authed_preston, exception: aiohttp.C
         try:
             # Try fast affiliation API
             new_corporation = (await authed_preston.post_op(
-                'post_characters_affiliation',
+                'PostCharactersAffiliation',
                 path_data={},
                 post_data=[character.character_id]
             ))[0].get("corporation_id")
         except Exception as e:
             # Fall back to slow character API
             new_corporation = (await authed_preston.get_op(
-                'get_characters_character_id',
+                'GetCharactersCharacterId',
                 character_id=character.character_id
             )).get("corporation_id")
 

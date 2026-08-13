@@ -71,7 +71,7 @@ async def notification_pings(action_lock, preston, bot):
                 continue
             try:
                 response = await authed_preston.get_op(
-                    "get_characters_character_id_notifications",
+                    "GetCharactersCharacterIdNotifications",
                     character_id=character.character_id,
                 )
             except aiohttp.ClientResponseError as exp:
@@ -116,7 +116,7 @@ async def status_pings(action_lock, preston, bot):
                 continue
             try:
                 response = await authed_preston.get_op(
-                    "get_corporations_corporation_id_structures",
+                    "GetCorporationsCorporationIdStructures",
                     corporation_id=character.corporation_id,
                 )
             except aiohttp.ClientResponseError as exp:

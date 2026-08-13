@@ -314,7 +314,7 @@ async def info(interaction: Interaction):
 
             try:
                 structure_response = await authed_preston.get_op(
-                    "get_corporations_corporation_id_structures",
+                    "GetCorporationsCorporationIdStructures",
                     corporation_id=character.corporation_id,
                 )
             except ConnectionError:
@@ -403,12 +403,12 @@ async def debug(interaction: Interaction, character_id: int):
         character_name = character_data.get("character_name", "Unknown")
 
         structure_response = await authed_preston.get_op(
-            "get_corporations_corporation_id_structures",
+            "GetCorporationsCorporationIdStructures",
             corporation_id=character.corporation_id,
         )
 
         notification_response = await authed_preston.get_op(
-            "get_characters_character_id_notifications",
+            "GetCharactersCharacterIdNotifications",
             character_id=character.character_id
         )
 

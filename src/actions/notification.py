@@ -37,7 +37,7 @@ async def make_attribution(notification: dict, preston: Preston) -> str:
 
     try:
         character_name = (await preston.get_op(
-            'get_characters_character_id',
+            'GetCharactersCharacterId',
             character_id=str(character_id)
         )).get("name", "Unknown")
         return f" by [{character_name}](https://zkillboard.com/character/{character_id}/)"
@@ -68,7 +68,7 @@ async def structure_notification_text(notification: dict, authed_preston: Presto
     # noinspection PyBroadException
     try:
         structure_name = (await authed_preston.get_op(
-            "get_universe_structures_structure_id",
+            "GetUniverseStructuresStructureId",
             structure_id=str(get_structure_id(notification)),
         )).get("name")
     except Exception:
@@ -101,7 +101,7 @@ async def get_poco_name(notification: dict, preston: Preston) -> str:
             planet_id = line.split(" ")[1]
 
     if planet_id is not None:
-        return (await preston.get_op("get_universe_planets_planet_id", planet_id=planet_id)).get("name")
+        return (await preston.get_op("GetUniversePlanetsPlanetId", planet_id=planet_id)).get("name")
     return "Unknown Poco"
 
 

@@ -106,7 +106,7 @@ async def webserver(bot, preston: Preston):
         except Exception as e:
             # Fall back to slow character API
             corporation_id = (await preston.get_op(
-                'get_characters_character_id',
+                'GetCharactersCharacterId',
                 character_id=character_id
             )).get("corporation_id")
 
@@ -126,7 +126,7 @@ async def webserver(bot, preston: Preston):
 
         # Mark old notifications as skipped
         notifications = await authed_preston.get_op(
-            "get_characters_character_id_notifications",
+            "GetCharactersCharacterIdNotifications",
             character_id=character_id,
         )
 
