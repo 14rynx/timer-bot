@@ -152,25 +152,15 @@ async def webserver(bot, preston: Preston):
 
     @routes.get('/unreachable')
     async def unreachable(request):
-        """Return list of users who currently have no valid channel."""
-
+        """Return list of user IDs who currently have no valid channel."""
         users_data = []
         for u, count in user_disconnected_count.items():
-            user_id = getattr(u, "user_id", None)
+            user_id = getattr(u, "user_id", u)
             if not user_id:
                 continue
 
-            discord_user = None
-            try:
-                discord_user = await bot.fetch_user(int(user_id))
-            except Exception as e:
-                logger.debug(f"Failed to fetch user {user_id}: {e}")
-
             users_data.append({
                 "user_id": str(user_id),
-                "handle": f"{discord_user}" if discord_user else "<unknown>",
-                "name": getattr(discord_user, "name", None),
-                "discriminator": getattr(discord_user, "discriminator", None),
                 "attempts": count,
             })
 
